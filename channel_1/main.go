@@ -1,0 +1,36 @@
+package main
+
+import (
+	"time"
+	"fmt"
+
+)
+
+func main() {
+
+	oChannel1 := make(chan int)
+	oChannel2 := make(chan int)
+
+	go func() {
+		for i := 1; i <= 10; i = i+1 {
+			oChannel1<-i
+		}
+	}()
+
+	go func() {
+		for i := 101; i <= 110; i = i+1 {
+			oChannel2<-i
+		}
+	}()
+
+
+	var iV int
+	select {
+	case iV = <-oChannel1:
+			fmt.Println(iV)
+	case iV = <-oChannel2:
+			fmt.Println(iV)
+	}
+
+	time.Sleep(time.Second * 10)
+}

@@ -27,6 +27,7 @@ func main() {
 	var iV int
 	for  iCount := 1; iCount <= 20; iCount++ {
 		select {
+			// 併發取值，未必是 oChannel1 先取出
 		case iV = <-oChannel1:
 				fmt.Println(iV)
 		case iV = <-oChannel2:

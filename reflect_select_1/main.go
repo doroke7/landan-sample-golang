@@ -44,6 +44,7 @@ func main() {
 
 	// 直到所有 channel 都被關閉、停用。
 	for active > 0 {
+		// 這邊拉平了數據， 從2維度（4 個 channel k 個元素）變成一個維度
 		chosen, recv, recvOK := reflect.Select(cases)
 
 		if !recvOK {

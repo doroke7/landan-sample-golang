@@ -9,6 +9,8 @@ import (
 	"golang.org/x/sync/semaphore"
 )
 
+// 信號量是一個允許 n 個併發的工具
+
 func main() {
 	var wg sync.WaitGroup
 	ctx := context.Background()

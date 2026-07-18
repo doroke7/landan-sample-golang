@@ -61,4 +61,7 @@ func main() {
 	case 2:
 		fmt.Println("執行了 Default 分支（沒有 Channel 準備好）")
 	}
+
+
+	// 
 }

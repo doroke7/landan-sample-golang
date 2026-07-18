@@ -11,9 +11,11 @@ import (
 // singleflight 是高併發情況只允許 同時間 一個函數在執行
 // Once 不只同時間執行一次，並且永遠只有執行一次
 
+var g singleflight.Group
+
 func fetchUser(userID string) (string, error) {
 	// 同一個 key 的同時呼叫，只會執行 fn 一次。
-	value, err, shared := singleflight.Group.Do(userID, func() (any, error) {
+	value, err, shared := g.Do(userID, func() (any, error) {
 		fmt.Println("真的去查資料：", userID)
 
 		// 模擬打 DB 或外部 API

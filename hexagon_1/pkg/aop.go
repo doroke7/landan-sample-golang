@@ -13,7 +13,7 @@ import (
 
 	"github.com/redis/go-redis/v9"
 
-	"example/internal/bootstrap"
+	"example/bootstrap"
 )
 
 /**

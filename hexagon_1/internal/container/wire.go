@@ -8,7 +8,7 @@ import (
 
 	pkg "example/pkg"
 
-	bootstrap "example/internal/bootstrap"
+	bootstrap "example/bootstrap"
 	internalClient "example/internal/client"
 	helper "example/internal/helper"
 	client "example/internal/input/client"

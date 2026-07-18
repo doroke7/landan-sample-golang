@@ -1,7 +1,7 @@
 package helper
 
 import (
-	"example/internal/bootstrap"
+	"example/bootstrap"
 	"fmt"
 	"reflect"
 	"strings"

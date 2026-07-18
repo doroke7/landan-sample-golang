@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/itnelo/gollback"
+	"github.com/vardius/gollback"
 )
 
 func main() {

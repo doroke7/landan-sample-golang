@@ -13,7 +13,7 @@ import (
 	"time"
 
 	clientv3 "go.etcd.io/etcd/client/v3"
-	"go.etcd.io/etcd/experimental/recipe"
+	recipe "go.etcd.io/etcd/client/v3/experimental/recipes"
 )
 
 func main() {
@@ -37,8 +37,8 @@ func main() {
 	if role == "master" {
 		fmt.Println("🎬 [Master Mode] 啟動...")
 
-		_ = barrier1.Init() // IMPORTANT: Master 專有，鎖上第一道大門
-		_ = barrier2.Init() // IMPORTANT: Master 專有，鎖上第二道大門
+		_ = barrier1.Hold() // IMPORTANT: Master 專有，鎖上第一道大門
+		_ = barrier2.Hold() // IMPORTANT: Master 專有，鎖上第二道大門
 		fmt.Println("🔒 大門已全部鎖死，請啟動 worker 開始排隊。5 秒後開啟第一道門...")
 
 		time.Sleep(5 * time.Second)

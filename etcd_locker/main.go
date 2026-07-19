@@ -59,17 +59,16 @@ func main() {
 	}
 	defer session.Close()
 
-	// 3. 先建立原生的 Mutex
-	mutex := concurrency.NewMutex(session, "/locks/global_counter")
+	// 3. ⚡ 關鍵點：concurrency.NewLocker 直接回傳符合 sync.Locker 介面的物件
+	// （*concurrency.Mutex 本身的 Lock/Unlock 是要帶 context 的，並不滿足 sync.Locker，
+	//  所以不能用「先建 Mutex 再包裝」的方式，得直接呼叫 NewLocker）
+	etcdLocker := concurrency.NewLocker(session, "/locks/global_counter")
 
-	// 4. ⚡ 關鍵點：使用 concurrency.Locker 將 Mutex 包裝成符合 sync.Locker 介面的物件
-	etcdLocker := concurrency.Locker(mutex)
-
-	// 5. 將馬甲鎖注入到需要標準鎖的業務結構體中
+	// 4. 將馬甲鎖注入到需要標準鎖的業務結構體中
 	counter := &DistributedCounter{
 		mu: etcdLocker, // 完美適配！
 	}
 
-	// 6. 執行任務
+	// 5. 執行任務
 	counter.Add(nodeName)
 }

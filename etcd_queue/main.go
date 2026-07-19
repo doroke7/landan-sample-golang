@@ -1,13 +1,12 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"log"
 	"time"
 
 	clientv3 "go.etcd.io/etcd/client/v3"
-	"go.etcd.io/etcd/experimental/recipe" // 💡 Etcd 佇列在這個擴充包裡
+	recipe "go.etcd.io/etcd/client/v3/experimental/recipes" // 💡 Etcd 佇列在這個擴充包裡
 )
 
 func main() {
@@ -24,8 +23,6 @@ func main() {
 	// 2. 宣告一個全域唯一的佇列名稱 (Queue Key)
 	// 所有分散式節點只要認準這個 Key，就能一起排隊塞任務、搶任務
 	q := recipe.NewQueue(cli, "/my_global_queue")
-
-	ctx := context.Background()
 
 	// 🛠️ 【生產者 Goroutine】負責塞任務進隊列
 	go func() {

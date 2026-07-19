@@ -6,10 +6,13 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	clientv3 "go.etcd.io/etcd/client/v3"
 	"go.etcd.io/etcd/client/v3/concurrency"
+	recipe "go.etcd.io/etcd/client/v3/experimental/recipes"
 )
 
 // 一次啟動 三個ps “： go run main.go -id=1 & go run main.go -id=2 & go run main.go -id=3
@@ -17,6 +20,7 @@ import (
 func main() {
 	// 1. 透過 flag 讓每個進程在啟動時指定自己的 ID（模擬完全獨立的進程）
 	processID := flag.Int("id", 0, "獨立進程的識別碼 (ID)")
+	requiredProcesses := flag.Int("count", 3, "必須到齊的進程數量")
 	flag.Parse()
 
 	if *processID == 0 {
@@ -43,21 +47,28 @@ func main() {
 	}
 	defer session.Close()
 
-	// 4. 定義跨進程共享的柵欄 Key 與必須到齊的進程數量
+	// 收到中斷訊號時主動關閉 session，讓 lease 立刻撤銷，
+	// 避免其他還在等待的進程需要卡到 lease TTL 到期才能繼續。
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	go func() {
+		<-ctx.Done()
+		session.Close()
+	}()
+
+	// 4. 定義跨進程共享的柵欄 Key
 	barrierKey := "/my-distributed-double-barrier"
-	requiredProcesses := 3 // 👥 必須湊滿 3 個獨立進程才放行
 
-	// 建立 DoubleBarrier 實例
-	db := concurrency.NewDoubleBarrier(session, barrierKey, requiredProcesses)
-	ctx := context.Background()
+	// 建立 DoubleBarrier 實例（來自 experimental/recipes，並非 concurrency package）
+	db := recipe.NewDoubleBarrier(session, barrierKey, *requiredProcesses)
 
-	fmt.Printf("🚶 [進程 %d] 到達入口柵欄，目前進程數不足 %d，開始跨網路卡住等待...\n", *processID, requiredProcesses)
+	fmt.Printf("🚶 [進程 %d] 到達入口柵欄，目前進程數不足 %d，開始跨網路卡住等待...\n", *processID, *requiredProcesses)
 
 	// =================================================================
 	// 🚪 第一重屏障：Enter() —— 湊齊 3 個獨立進程才准「同時」進門開工
 	// =================================================================
 	// 這裡完全沒有共享記憶體，底層是用各自的 Session ID 去 Etcd 註冊節點。
-	if err := db.Enter(ctx); err != nil {
+	if err := db.Enter(); err != nil {
 		log.Fatalf("❌ 進入柵欄失敗: %v", err)
 	}
 
@@ -75,7 +86,7 @@ func main() {
 	// 🚪 第二重屏障：Leave() —— 湊齊 3 個獨立進程都做完，才准「同時」解散
 	// =================================================================
 	// 跑得快的進程不能先死掉或中斷，必須在 Leave() 卡住，確保整個分散式任務的階段一致性。
-	if err := db.Leave(ctx); err != nil {
+	if err := db.Leave(); err != nil {
 		log.Fatalf("❌ 離開柵欄失敗: %v", err)
 	}
 

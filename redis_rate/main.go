@@ -45,8 +45,8 @@ func main() {
 				return
 			}
 
-			// 💡 res.Allowed 會直接告訴你過不過
-			if !res.Allowed {
+			// 💡 res.Allowed 是「這一刻還能放行幾個」，0 代表被限流擋下
+			if res.Allowed == 0 {
 				// 🚫 失敗 Action：第 11~15 個請求會直接被彈回
 				// res.RetryAfter 還會貼心地告訴你還要等多久才可以再戳
 				fmt.Printf("❌ 請求 %d：限流攔截！請等待 %v 後再試\n", requestID, res.RetryAfter)

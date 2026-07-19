@@ -38,6 +38,60 @@ import (
 
 */
 
+/*
+
+
+sample/aop 的用法：
+
+
+func GetUser(id int64) (User, error) {
+      oUser, oErr := pkg.Cacheable("", 10*time.Minute, func() (User, error) {
+              oUser, oErr := queryUserFromDB(id) // 真正查 DB
+              if oErr != nil {
+                      return oUser, oErr
+              }
+
+              return oUser, nil
+      }, id) // id 會被拼進 cache key（Md5(aParams...)）
+      if oErr != nil {
+              return oUser, oErr
+      }
+
+      return oUser, nil
+}
+
+
+
+pkg/aop 的用法：
+
+func (oSelf *UserService) GetUser(oCtx context.Context, nID int64) (User, error) {
+      var oUser User
+      sKey := fmt.Sprintf("user:%d", nID)
+
+      oErr := oSelf.oAop.Cacheable(oCtx, sKey, 10*time.Minute, &oUser, func(oCtx context.Context) (interface{}, error) {
+              oUser, oErr := queryUserFromDB(nID) // 真正查 DB
+              if oErr != nil {
+                      return oUser, oErr
+              }
+
+              return oUser, nil
+      })
+      if oErr != nil {
+              return oUser, oErr
+      }
+
+      return oUser, nil
+}
+
+
+兩個方式的差異是：
+1. pkg package 函數 vs struct 函數
+2. 不使用 context vs 使用 context
+3. 需要指定型別 （User）在注入函數 vs 直接注入結構體（ &oUser）
+
+*. 結論 下面的寫法比較優雅
+*/
+
 type Aop struct {
 	Redis   *redis.Client
 	Context context.Context

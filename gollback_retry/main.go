@@ -17,6 +17,7 @@ func main() {
 
 	fmt.Println("🚀 開始執行具備「自動重試機制」的網路請求...")
 
+	// 我 := "1"
 	// 呼叫 gollback.Retry
 	// 參數 1：控制超時的 context
 	// 參數 2：最大重試次數（這裡設為 5 次）
@@ -24,6 +25,7 @@ func main() {
 	res, err := gollback.Retry(ctx, 5, func(ctx context.Context) (interface{}, error) {
 		attempts++
 		fmt.Printf("⏳ [第 %d 次嘗試] 正在連線到伺服器...\n", attempts)
+
 
 		// 模擬前 2 次都失敗，第 3 次才成功
 		if attempts < 3 {

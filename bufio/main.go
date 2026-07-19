@@ -5,11 +5,12 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"time"
 )
 
 func main() {
 	// 1. 打開檔案
-	file, err := os.Open("ctest.txt")
+	file, err := os.Open("test.txt")
 	if err != nil {
 		log.Fatalf("無法開啟檔案: %v", err)
 	}
@@ -30,6 +31,7 @@ func main() {
 		line := scanner.Text()
 
 		fmt.Printf("讀取到一行數據: %s\n", line)
+		time.Sleep(1 * time.Second)
 	}
 
 	// 4. 檢查迴圈結束是因為「正常讀完」還是「中途出錯」

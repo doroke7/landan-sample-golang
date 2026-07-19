@@ -21,6 +21,14 @@ func NewModel(name string) *Model {
 //  once 直接寫在 method 裡面 變成 ，保證所有方法都只會做一次，這個在單例沒問題，
 
 func Singletone(name string) *Model {
+
+	// once 底層代碼就是先看有沒有初始化 再上鎖的思維/。
+	// once 底層代碼就是先看有沒有初始化 再上鎖的思維/。
+	// once 底層代碼就是先看有沒有初始化 再上鎖的思維/。
+	// once 底層代碼就是先看有沒有初始化 再上鎖的思維/。
+	// once 底層代碼就是先看有沒有初始化 再上鎖的思維/。
+	// once 底層代碼就是先看有沒有初始化 再上鎖的思維/。
+
 	once.Do(func() {
 		instance = NewModel(name)
 	})

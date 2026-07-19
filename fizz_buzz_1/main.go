@@ -5,6 +5,16 @@ import (
 	"sync"
 )
 
+/*
+  Fizzbuzz問題的本質：
+「一個全域的單一資料輸入來源（1 到 N），
+分發給 N種 不同的消費隊列（Fizz、Buzz、FizzBuzz、Number），
+但最卡手的是：這 1->2->3  ... -> N 個消費隊列之間，還必須維持絕對的『循序（Sequential）』。
+
+
+
+*/
+
 func main() {
 	n := 15
 

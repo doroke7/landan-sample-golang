@@ -93,7 +93,7 @@ func (oSelf *UserService) GetUser(oCtx context.Context, nID int64) (User, error)
 */
 
 type Aop struct {
-	Redis   *redis.Client
+	Redis   redis.UniversalClient
 	Context context.Context
 }
 

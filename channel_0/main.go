@@ -13,7 +13,7 @@ func main() {
 		iI := 1
 
 		for {
-			time.Sleep(4 * time.Second)
+			time.Sleep(10 * time.Second)
 
 			oChannel <- iI
 

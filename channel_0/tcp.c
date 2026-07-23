@@ -67,6 +67,12 @@ int main()
 
         while (1)
         {
+
+            // 這是一個 經典 異步模式 reactor 模式： 
+            // Reactor 就是把「監聽事件」委託給 Kernel（epoll/kqueue），當事件發生時，Kernel 通知我；收到通知後，我再主動去把資料讀出來。
+
+
+            // 實現算法是 epoll 
             int n = read(client_fd, buf, sizeof(buf));
 
             if (n <= 0)

@@ -7,32 +7,36 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"sync"
+	"time"
 )
 
-// TcpRequest/TcpResponse 是要送上線的內容，跟正式版 types.TcpRequest/TcpResponse
-// 是同一套欄位，用 JSON 編碼——比 "|" 字串分隔更明確，也不用擔心欄位內容剛好
-// 出現分隔符號。核心的 4-byte 長度前綴（解決黏包/拆包）沒有變。
+// 這份在 sample/tcp_2 的框架基礎上（4-byte 長度前綴解決黏包/拆包、struct+JSON）
+// 加上 RequestId，讓 client 可以在同一條連線上「同時」掛好幾筆還沒回應的 request——
+// 這就是多路復用（multiplexing）。跟 tcp_2 的差異都標了 // IMPORTANT 多路。
 
 type TcpRequest struct {
-	Code   int    `json:"code"`
-	Method string `json:"method"`
-	Param  string `json:"param"`
+	RequestId string `json:"request_id"`
+	Code      int    `json:"code"`
+	Method    string `json:"method"`
+	Param     string `json:"param"`
 }
 
 type TcpResponse struct {
-	Code    int    `json:"code"`
-	Message string `json:"message"`
-	Result  string `json:"result"`
+	RequestId string `json:"request_id"`
+	Code      int    `json:"code"`
+	Message   string `json:"message"`
+	Result    string `json:"result"`
 }
 
 func main() {
-	oListener, err := net.Listen("tcp", ":9000")
+	oListener, err := net.Listen("tcp", ":9001")
 	if err != nil {
 		panic(err)
 	}
 	defer oListener.Close()
 
-	fmt.Println("server listening on :9000")
+	fmt.Println("server listening on :9001")
 
 	for {
 		oConn, err := oListener.Accept()
@@ -49,27 +53,55 @@ func handleConn(oConn net.Conn) {
 
 	oReader := bufio.NewReader(oConn)
 
+	// IMPORTANT 多路：多個 goroutine 會同時想 Write 到同一個 net.Conn，寫入本身
+	// 不是原子的，這裡只保護「寫一個完整 frame」這個動作；不然兩筆 response 的
+	// bytes 可能交錯寫進去，變成誰都解不出來的垃圾。
+	var oWriteMu sync.Mutex
+
 	for {
 		var oReq TcpRequest
 		if err := decodeFrame(oReader, &oReq); err != nil {
 			return
 		}
 
-		fmt.Printf("server received: code=%d method=%s param=%s\n", oReq.Code, oReq.Method, oReq.Param)
+		/* IMPORTANT 多路：
+		           一路：收到消息， 同步的寫入。一定是一個蘿蔔一個坑
+				   多路：收到消息後馬上 異步開協程 寫入，可能次序不同，此時靠 request-id
 
-		oResp := TcpResponse{
-			Code:    1,
-			Message: "成功處理 " + oReq.Method,
-			Result:  "echo:" + oReq.Param,
-		}
+		*/
+		go func(oReq TcpRequest) {
+			// 故意讓每筆 request 的處理時間不一樣（method 是 "Slow" 就睡久一點），
+			// 讓 response 確定會亂序回去——這樣才能真正驗證 client 端是靠
+			// RequestId 配對回正確的呼叫方，不是「剛好照順序回來」的巧合。
+			iDelayMs := 100
+			if oReq.Method == "Slow" {
+				iDelayMs = 400
+			}
+			time.Sleep(time.Duration(iDelayMs) * time.Millisecond)
 
-		if err := encodeFrame(oConn, oResp); err != nil {
-			return
-		}
+			fmt.Printf("server processed id=%s method=%s param=%s\n", oReq.RequestId, oReq.Method, oReq.Param)
+
+			oResp := TcpResponse{
+				// IMPORTANT 多路：response 一定要帶回「跟這個 request 一樣的 RequestId」，
+				// client 端全靠這個 id 才知道這筆 response 屬於哪個呼叫方；
+				// 帶錯 id、或忘記帶，client 那邊的配對機制就直接失效。
+				RequestId: oReq.RequestId,
+				Code:      1,
+				Message:   "成功處理 " + oReq.Method,
+				Result:    "echo:" + oReq.Param,
+			}
+
+			oWriteMu.Lock()
+			defer oWriteMu.Unlock()
+
+			if err := encodeFrame(oConn, oResp); err != nil {
+				fmt.Println("server write failed:", err)
+			}
+		}(oReq)
 	}
 }
 
-// encodeFrameAndWrite 把 oPayload 編成 JSON、加上 4-byte 長度前綴，寫出去。
+// encodeFrame 把 oPayload 編成 JSON、加上 4-byte 長度前綴，寫出去。
 func encodeFrame(oWriter io.Writer, oPayload any) error {
 	aBody, err := json.Marshal(oPayload)
 	if err != nil {

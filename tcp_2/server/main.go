@@ -63,14 +63,14 @@ func handleConn(oConn net.Conn) {
 			Result:  "echo:" + oReq.Param,
 		}
 
-		if err := encodeFrameAndWrite(oConn, oResp); err != nil {
+		if err := encodeFrame(oConn, oResp); err != nil {
 			return
 		}
 	}
 }
 
 // encodeFrameAndWrite 把 oPayload 編成 JSON、加上 4-byte 長度前綴，寫出去。
-func encodeFrameAndWrite(oWriter io.Writer, oPayload any) error {
+func encodeFrame(oWriter io.Writer, oPayload any) error {
 	aBody, err := json.Marshal(oPayload)
 	if err != nil {
 		return err

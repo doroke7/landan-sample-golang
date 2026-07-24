@@ -6,11 +6,22 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"strconv"
 	"strings"
+	"sync"
 )
 
+// client 端只用「一條」連線，靠 RequestId 讓多個並發呼叫共用它。
+// 對照 sample/tcp_3（沒有 id、每次都是單一來回）才看得出多路復用多做了什麼，
+// 關鍵動作都標了 // IMPORTANT 多路。
+
+type result struct {
+	Payload string
+	Err     error
+}
+
 func main() {
-	oConn, err := net.Dial("tcp", "127.0.0.1:9001")
+	oConn, err := net.Dial("tcp", "127.0.0.1:9002")
 	if err != nil {
 		panic(err)
 	}
@@ -18,60 +29,85 @@ func main() {
 
 	oReader := bufio.NewReader(oConn)
 
-	fmt.Println("=== 黏包測試：3 筆小 message 串成一個 []byte，一次 Write 出去 ===")
-	pack(oConn, oReader)
+	// IMPORTANT 多路：多個 goroutine 同時呼叫 call() 時，寫 request 也要序列化，
+	// 理由跟 server 端的 oWriteMu 一樣——同一個 socket 不能被兩個 goroutine 同時寫。
+	var oWriteMu sync.Mutex
 
-	fmt.Println()
-	fmt.Println("=== 拆包測試：送 1 筆超大 message，底層一定要分好幾次 Read 才收得完 ===")
-	unpack(oConn, oReader)
-}
+	oPendingMu := sync.Mutex{}
+	aPending := make(map[string]chan result)
 
-func pack(oConn net.Conn, oReader *bufio.Reader) {
-	aMessages := []string{"msg-A", "msg-B", "msg-C"}
+	// IMPORTANT 多路：從連線建立到斷線為止，只有這一個 goroutine 負責讀這條連線，
+	// 其他呼叫完全不碰 oReader。讀到 response 就靠 id 查表，把結果塞進對應呼叫方
+	// 專屬的 channel——不共享讀取狀態，只讓一個人讀、其他人排隊拿結果。
+	go func() {
+		for {
+			sId, sPayload, err := readMessage(oReader)
+			if err != nil {
+				return
+			}
 
-	// 故意把 3 筆訊息各自組好 frame 之後「串在同一個 []byte 裡，一次 Write 出去」，
-	// 而不是分開呼叫 3 次 Write。這樣可以確保底層一定是當成一坨連續的 bytes 送出去，
-	// server 端第一次 Read 很可能就把 3 筆訊息的 bytes 全部收進來——這就是黏包。
-	var aPayload []byte
-	for _, sMessage := range aMessages {
-		aPayload = append(aPayload, encodeMessage(sMessage)...)
-	}
+			oPendingMu.Lock()
+			oChan, ok := aPending[sId]
+			delete(aPending, sId)
+			oPendingMu.Unlock()
 
-	if _, err := oConn.Write(aPayload); err != nil {
-		panic(err)
-	}
-
-	// 3 筆 request 對應 3 筆 response，依序讀回來，驗證每一筆都完整、沒有互相混到。
-	for range aMessages {
-		sResponse, err := readMessage(oReader)
-		if err != nil {
-			panic(err)
+			if ok {
+				oChan <- result{Payload: sPayload}
+			}
+			// !ok：id 對不上任何還在等的呼叫方，直接丟掉。
 		}
-		fmt.Println("client received:", sResponse)
+	}()
+
+	call := func(sId string, sPayload string) (string, error) {
+		oChan := make(chan result, 1)
+
+		// IMPORTANT 多路：一定要「先登記、再送出」——在 Write 之前就把 channel
+		// 放進 pending 表，確保 response 不管多快回來，讀取 goroutine 一定找得到
+		// 對應的呼叫方。順序反過來的話，response 有可能在 channel 登記好之前
+		// 就已經被讀取 goroutine 收到、查無此 id 而被直接丟掉。
+		oPendingMu.Lock()
+		aPending[sId] = oChan
+		oPendingMu.Unlock()
+
+		oWriteMu.Lock()
+		err := writeMessage(oConn, sId, sPayload)
+		oWriteMu.Unlock()
+		if err != nil {
+			return "", err
+		}
+
+		// IMPORTANT 多路：只 blocking 等自己專屬的 channel，不管其他並發中的
+		// request 目前處理到哪、也不管 response 實際回來的順序，一定拿到
+		// 屬於自己這一筆的結果。
+		oResult := <-oChan
+		return oResult.Payload, oResult.Err
 	}
+
+	fmt.Println("=== 多路復用測試：同時發出 3 筆 request（id=1,2,3） ===")
+	fmt.Println("=== server 刻意讓 id=3 最快處理完、id=1 最慢，response 一定會亂序回來 ===")
+	fmt.Println("=== 如果沒用 RequestId 配對，亂序回來的 response 會被誤認成別筆的結果 ===")
+
+	var oWaitGroup sync.WaitGroup
+	for i := 1; i <= 3; i++ {
+		oWaitGroup.Add(1)
+		go func(iId int) {
+			defer oWaitGroup.Done()
+
+			sId := strconv.Itoa(iId)
+			sPayload, err := call(sId, "message-"+sId)
+			if err != nil {
+				fmt.Println("call failed:", err)
+				return
+			}
+
+			fmt.Printf("client got response for id=%s: %s\n", sId, sPayload)
+		}(i)
+	}
+	oWaitGroup.Wait()
 }
 
-func unpack(oConn net.Conn, oReader *bufio.Reader) {
-	// 5MB 的內容，遠大於 bufio.Reader 預設緩衝區（4096 bytes）能一次裝的量，
-	// 底層 Read 勢必要被呼叫很多次才能把這一筆訊息收滿——這就是拆包。
-	sBigMessage := strings.Repeat("A", 5*1024*1024)
-
-	if err := writeMessage(oConn, sBigMessage); err != nil {
-		panic(err)
-	}
-
-	sResponse, err := readMessage(oReader)
-	if err != nil {
-		panic(err)
-	}
-	fmt.Println("client received:", sResponse)
-}
-
-// encodeMessage/writeMessage/readMessage 跟 server 那份一模一樣——這是故意的，
-// 兩邊本來就要照同一套規則組包/拆包才讀得懂彼此，不是誰依賴誰。
-
-func encodeMessage(sMessage string) []byte {
-	aBody := []byte(sMessage)
+func encodeMessage(sId string, sPayload string) []byte {
+	aBody := []byte(sId + "|" + sPayload)
 
 	aFrame := make([]byte, 4+len(aBody))
 	binary.BigEndian.PutUint32(aFrame[0:4], uint32(len(aBody)))
@@ -80,23 +116,27 @@ func encodeMessage(sMessage string) []byte {
 	return aFrame
 }
 
-func writeMessage(oWriter io.Writer, sMessage string) error {
-	_, err := oWriter.Write(encodeMessage(sMessage))
+func writeMessage(oWriter io.Writer, sId string, sPayload string) error {
+	_, err := oWriter.Write(encodeMessage(sId, sPayload))
 	return err
 }
 
-func readMessage(oReader io.Reader) (string, error) {
+func readMessage(oReader io.Reader) (sId string, sPayload string, err error) {
 	aLengthBuf := make([]byte, 4)
-	if _, err := io.ReadFull(oReader, aLengthBuf); err != nil {
-		return "", err
+	if _, err = io.ReadFull(oReader, aLengthBuf); err != nil {
+		return "", "", err
 	}
 
 	iLength := binary.BigEndian.Uint32(aLengthBuf)
 
 	aBody := make([]byte, iLength)
-	if _, err := io.ReadFull(oReader, aBody); err != nil {
-		return "", err
+	if _, err = io.ReadFull(oReader, aBody); err != nil {
+		return "", "", err
 	}
 
-	return string(aBody), nil
+	aParts := strings.SplitN(string(aBody), "|", 2)
+	if len(aParts) != 2 {
+		return "", string(aBody), nil
+	}
+	return aParts[0], aParts[1], nil
 }

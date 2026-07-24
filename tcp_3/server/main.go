@@ -39,12 +39,12 @@ func main() {
 
 // countingReader 包一層在 net.Conn 外面，每次底層 Read 被呼叫就記一次數，
 // 用來觀察「一筆邏輯訊息」實際上對應了幾次「實體的 TCP Read」。
-type countingReader struct {
-	reader io.Reader
+type CountingReader struct {
+	reader io.Reader // CountingReader 繼承 了  io.Reader
 	Count  int
 }
 
-func (oSelf *countingReader) Read(aBuf []byte) (int, error) {
+func (oSelf *CountingReader) Read(aBuf []byte) (int, error) {
 	oSelf.Count++
 	return oSelf.reader.Read(aBuf)
 }
@@ -52,12 +52,20 @@ func (oSelf *countingReader) Read(aBuf []byte) (int, error) {
 func handleConn(oConn net.Conn) {
 	defer oConn.Close()
 
-	oCounter := &countingReader{reader: oConn}
-	oReader := bufio.NewReader(oCounter)
+	oCounterReader := &CountingReader{reader: oConn}
+	oReader := bufio.NewReader(oCounterReader)
 
 	iIndex := 0
 	for {
-		iCountBefore := oCounter.Count
+		iCountBefore := oCounterReader.Count
+
+		/*
+			    IMPORTANT
+				原本的機制是， 一個同步的讀取resquest，然後再同步的寫 response。
+				換言之這個response 一定確切被這個 resquest 相關的數據後寫入。
+
+
+		*/
 
 		sMessage, err := readMessage(oReader)
 		if err != nil {
@@ -72,7 +80,7 @@ func handleConn(oConn net.Conn) {
 
 		fmt.Printf(
 			"server received #%d: len=%d preview=%q (這筆訊息期間底層 Read 被呼叫了 %d 次)\n",
-			iIndex, len(sMessage), sPreview, oCounter.Count-iCountBefore,
+			iIndex, len(sMessage), sPreview, oCounterReader.Count-iCountBefore,
 		)
 
 		sResponse := fmt.Sprintf("echo #%d len=%d", iIndex, len(sMessage))

@@ -53,14 +53,17 @@ func handleConn(oConn net.Conn) {
 			return
 		}
 
-		// IMPORTANT 多路：收到 request 立刻丟進自己的 goroutine 處理，read 迴圈
-		// 馬上回去讀下一筆。如果還是「處理完才讀下一筆」（跟 tcp_3 一樣），
-		// client 就算並發送出好幾筆 request，server 這邊照樣是排隊處理，
-		// 多路復用完全發揮不出來。
+		/*
+			    IMPORTANT
+				原本的機制是， 一個同步的讀取resquest，然後再同步的寫 response。
+				換言之這個response 一定確切被這個 resquest 相關的數據後寫入。
+
+				但是後來改成 讀取後馬上開一個異步協程 寫入 + 主協再讀取，這樣確實有可能造成數據次序不同步
+
+		*/
+
 		go func(sId string, sPayload string) {
-			// 故意讓每筆 request 的處理時間不一樣（id 數字越小睡越久），
-			// 讓 response 確定會亂序回去——這樣才能真正驗證 client 端是
-			// 靠 RequestId 配對回正確的呼叫方，不是「剛好照順序回來」的巧合。
+
 			iId, _ := strconv.Atoi(sId)
 			time.Sleep(time.Duration(400-iId*100) * time.Millisecond)
 

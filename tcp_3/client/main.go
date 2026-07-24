@@ -19,14 +19,14 @@ func main() {
 	oReader := bufio.NewReader(oConn)
 
 	fmt.Println("=== 黏包測試：3 筆小 message 串成一個 []byte，一次 Write 出去 ===")
-	demoStickyPackets(oConn, oReader)
+	pack(oConn, oReader)
 
 	fmt.Println()
 	fmt.Println("=== 拆包測試：送 1 筆超大 message，底層一定要分好幾次 Read 才收得完 ===")
-	demoLargePacket(oConn, oReader)
+	unpack(oConn, oReader)
 }
 
-func demoStickyPackets(oConn net.Conn, oReader *bufio.Reader) {
+func pack(oConn net.Conn, oReader *bufio.Reader) {
 	aMessages := []string{"msg-A", "msg-B", "msg-C"}
 
 	// 故意把 3 筆訊息各自組好 frame 之後「串在同一個 []byte 裡，一次 Write 出去」，
@@ -51,7 +51,7 @@ func demoStickyPackets(oConn net.Conn, oReader *bufio.Reader) {
 	}
 }
 
-func demoLargePacket(oConn net.Conn, oReader *bufio.Reader) {
+func unpack(oConn net.Conn, oReader *bufio.Reader) {
 	// 5MB 的內容，遠大於 bufio.Reader 預設緩衝區（4096 bytes）能一次裝的量，
 	// 底層 Read 勢必要被呼叫很多次才能把這一筆訊息收滿——這就是拆包。
 	sBigMessage := strings.Repeat("A", 5*1024*1024)

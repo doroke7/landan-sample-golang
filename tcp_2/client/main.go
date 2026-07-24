@@ -37,7 +37,7 @@ func main() {
 		Param:  "admin:520999",
 	}
 
-	if err := encodeFrameAndWrite(oConn, oReq); err != nil {
+	if err := encodeFrame(oConn, oReq); err != nil {
 		panic(err)
 	}
 
@@ -51,7 +51,7 @@ func main() {
 	fmt.Printf("client received: code=%d message=%s result=%s\n", oResp.Code, oResp.Message, oResp.Result)
 }
 
-func encodeFrameAndWrite(oWriter io.Writer, oPayload any) error {
+func encodeFrame(oWriter io.Writer, oPayload any) error {
 	aBody, err := json.Marshal(oPayload)
 	if err != nil {
 		return err

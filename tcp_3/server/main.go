@@ -3,29 +3,36 @@ package main
 import (
 	"bufio"
 	"encoding/binary"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net"
-	"strconv"
-	"strings"
-	"sync"
-	"time"
 )
 
-// 這份在 sample/tcp_3 的框架基礎上（4-byte 長度前綴解決黏包/拆包）加上 RequestId，
-// 讓 client 可以在同一條連線上「同時」掛好幾筆還沒回應的 request——這就是多路復用
-// （multiplexing）。跟 tcp_3 的差異都標了 // IMPORTANT 多路。
-//
-// message 格式很簡單，用一個 "|" 分隔："<id>|<payload>"，request/response 都一樣。
+// TcpRequest/TcpResponse 是要送上線的內容，跟正式版 types.TcpRequest/TcpResponse
+// 是同一套欄位，用 JSON 編碼——比 "|" 字串分隔更明確，也不用擔心欄位內容剛好
+// 出現分隔符號。核心的 4-byte 長度前綴（解決黏包/拆包）沒有變。
+
+type TcpRequest struct {
+	Code   int    `json:"code"`
+	Method string `json:"method"`
+	Param  string `json:"param"`
+}
+
+type TcpResponse struct {
+	Code    int    `json:"code"`
+	Message string `json:"message"`
+	Result  string `json:"result"`
+}
 
 func main() {
-	oListener, err := net.Listen("tcp", ":9002")
+	oListener, err := net.Listen("tcp", ":9000")
 	if err != nil {
 		panic(err)
 	}
 	defer oListener.Close()
 
-	fmt.Println("server listening on :9002")
+	fmt.Println("server listening on :9000")
 
 	for {
 		oConn, err := oListener.Accept()
@@ -42,79 +49,55 @@ func handleConn(oConn net.Conn) {
 
 	oReader := bufio.NewReader(oConn)
 
-	// IMPORTANT 多路：多個 goroutine 會同時想 Write 到同一個 net.Conn，寫入本身
-	// 不是原子的，這裡只保護「寫一個完整 frame」這個動作；不然兩筆 response 的
-	// bytes 可能交錯寫進去，變成誰都解不出來的垃圾。
-	var oWriteMu sync.Mutex
-
 	for {
-		sId, sPayload, err := readMessage(oReader)
-		if err != nil {
+		var oReq TcpRequest
+		if err := decodeFrame(oReader, &oReq); err != nil {
 			return
 		}
 
-		/*
-			    IMPORTANT
-				原本的機制是， 一個同步的讀取resquest，然後再同步的寫 response。
-				換言之這個response 一定確切被這個 resquest 相關的數據後寫入。
+		fmt.Printf("server received: code=%d method=%s param=%s\n", oReq.Code, oReq.Method, oReq.Param)
 
-				但是後來改成 讀取後馬上開一個異步協程 寫入 + 主協再讀取，這樣確實有可能造成數據次序不同步
+		oResp := TcpResponse{
+			Code:    1,
+			Message: "成功處理 " + oReq.Method,
+			Result:  "echo:" + oReq.Param,
+		}
 
-		*/
-
-		go func(sId string, sPayload string) {
-
-			iId, _ := strconv.Atoi(sId)
-			time.Sleep(time.Duration(400-iId*100) * time.Millisecond)
-
-			fmt.Printf("server processed id=%s payload=%s\n", sId, sPayload)
-
-			oWriteMu.Lock()
-			defer oWriteMu.Unlock()
-
-			// IMPORTANT 多路：response 一定要帶回「跟這個 request 一樣的 id」，
-			// client 端全靠這個 id 才知道這筆 response 屬於哪個呼叫方；
-			// 帶錯 id、或忘記帶，client 那邊的配對機制就直接失效。
-			if err := writeMessage(oConn, sId, "echo:"+sPayload); err != nil {
-				fmt.Println("server write failed:", err)
-			}
-		}(sId, sPayload)
+		if err := encodeFrameAndWrite(oConn, oResp); err != nil {
+			return
+		}
 	}
 }
 
-func encodeMessage(sId string, sPayload string) []byte {
-	aBody := []byte(sId + "|" + sPayload)
+// encodeFrameAndWrite 把 oPayload 編成 JSON、加上 4-byte 長度前綴，寫出去。
+func encodeFrameAndWrite(oWriter io.Writer, oPayload any) error {
+	aBody, err := json.Marshal(oPayload)
+	if err != nil {
+		return err
+	}
 
 	aFrame := make([]byte, 4+len(aBody))
 	binary.BigEndian.PutUint32(aFrame[0:4], uint32(len(aBody)))
 	copy(aFrame[4:], aBody)
 
-	return aFrame
-}
-
-func writeMessage(oWriter io.Writer, sId string, sPayload string) error {
-	_, err := oWriter.Write(encodeMessage(sId, sPayload))
+	_, err = oWriter.Write(aFrame)
 	return err
 }
 
-// readMessage 先讀 4 byte 拿到長度、讀滿那個長度（解決黏包/拆包，跟 tcp_3 一樣），
-// 再把內容用 "|" 切成 id 跟 payload 兩段。
-func readMessage(oReader io.Reader) (sId string, sPayload string, err error) {
+// decodeFrame 先讀 4 byte 拿到長度、讀滿那個長度（解決黏包/拆包），
+// 再把 body 的 JSON 解到 oPayload（傳 &TcpRequest{} 或 &TcpResponse{}）。
+func decodeFrame(oReader io.Reader, oPayload any) error {
 	aLengthBuf := make([]byte, 4)
-	if _, err = io.ReadFull(oReader, aLengthBuf); err != nil {
-		return "", "", err
+	if _, err := io.ReadFull(oReader, aLengthBuf); err != nil {
+		return err
 	}
 
 	iLength := binary.BigEndian.Uint32(aLengthBuf)
 
 	aBody := make([]byte, iLength)
-	if _, err = io.ReadFull(oReader, aBody); err != nil {
-		return "", "", err
+	if _, err := io.ReadFull(oReader, aBody); err != nil {
+		return err
 	}
 
-	aParts := strings.SplitN(string(aBody), "|", 2)
-	if len(aParts) != 2 {
-		return "", string(aBody), nil
-	}
-	return aParts[0], aParts[1], nil
+	return json.Unmarshal(aBody, oPayload)
 }

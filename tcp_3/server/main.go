@@ -67,12 +67,8 @@ func handleConn(oConn net.Conn) {
 		/* IMPORTANT 多路：
 		           一路：收到消息， 同步的寫入。一定是一個蘿蔔一個坑
 				   多路：收到消息後馬上 異步開協程 寫入，可能次序不同，此時靠 request-id
-
 		*/
 		go func(oReq TcpRequest) {
-			// 故意讓每筆 request 的處理時間不一樣（method 是 "Slow" 就睡久一點），
-			// 讓 response 確定會亂序回去——這樣才能真正驗證 client 端是靠
-			// RequestId 配對回正確的呼叫方，不是「剛好照順序回來」的巧合。
 			iDelayMs := 100
 			if oReq.Method == "Slow" {
 				iDelayMs = 400
@@ -82,9 +78,6 @@ func handleConn(oConn net.Conn) {
 			fmt.Printf("server processed id=%s method=%s param=%s\n", oReq.RequestId, oReq.Method, oReq.Param)
 
 			oResp := TcpResponse{
-				// IMPORTANT 多路：response 一定要帶回「跟這個 request 一樣的 RequestId」，
-				// client 端全靠這個 id 才知道這筆 response 屬於哪個呼叫方；
-				// 帶錯 id、或忘記帶，client 那邊的配對機制就直接失效。
 				RequestId: oReq.RequestId,
 				Code:      1,
 				Message:   "成功處理 " + oReq.Method,

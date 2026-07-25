@@ -49,6 +49,11 @@ func handleConn(oConn net.Conn) {
 
 	oReader := bufio.NewReader(oConn)
 
+	/* IMPORTANT 多路：
+	一路：收到消息， 同步的寫入。一定是一個蘿蔔一個坑
+	多路：收到消息後馬上 異步開協程 寫入，可能次序不同，此時靠 request-id
+	*/
+
 	for {
 		var oReq TcpRequest
 		if err := decodeFrame(oReader, &oReq); err != nil {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/md5"
 	"encoding/json"
+	"example/internal/bootstrap"
 	"fmt"
 	"log"
 	"runtime"
@@ -12,8 +13,6 @@ import (
 	"time"
 
 	"github.com/redis/go-redis/v9"
-
-	"example/bootstrap"
 )
 
 /**

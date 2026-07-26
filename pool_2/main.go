@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"errors"
 	"net"
+	"sync"
 )
 
 const (
@@ -13,6 +14,7 @@ const (
 var (
 	ErrTcpBodyTooLarge   = errors.New("tcp: body too large")
 	ErrTcpMethodNotFound = errors.New("tcp: method not found")
+	ErrTcpDialFailed     = errors.New("tcp: dial failed")
 )
 
 // tcpConn 是池子裡實際借還的單位：一條 net.Conn 綁一個專屬的 bufio.Reader。
@@ -24,16 +26,16 @@ type TcpConn struct {
 }
 
 // 跟 TcpClient.NewTcpClient 的做法一致。
-func NewTcpConn() (*TcpConn, error) {
+func NewTcpConn() *TcpConn {
 	oConn, err := net.Dial("tcp", "127.0.0.1:8800")
 	if err != nil {
-		return nil, err
+		return nil
 	}
 
 	return &TcpConn{
 		conn:   oConn,
 		reader: bufio.NewReader(oConn),
-	}, nil
+	}
 }
 
 func (oSelf *TcpConn) Write(aBuf []byte) (int, error) {
@@ -44,37 +46,39 @@ func (oSelf *TcpConn) Close() error {
 	return oSelf.conn.Close()
 }
 
-// TcpPoolClient 自帶連線池：外部呼叫端不需要知道底層借了哪條連線，呼叫 method 時
-// 自動借一條、用完自動還回去。channel 本身就是併發安全的借還機制，多個 goroutine
-// 可以同時各自佔用一條連線並發送 request，不會像單一連線+mutex 那樣互相卡住。
+// TcpPoolClient 用 sync.Pool 當連線池：不像 channel 版本有固定容量，
+// sync.Pool 完全不設上限，Put 進去的東西也可能在任何一次 GC 時被悄悄清掉
+// （不會呼叫 Close，連線就這樣被丟掉、底層 fd 靠 GC finalizer 或作業系統自己回收）。
+// 換句話說 sync.Pool 天生是給「可以隨時重建、丟了也無所謂」的東西用的，
+// 拿來裝有實體資源（TCP 連線）的物件，語意上比 channel 版本鬆散一些，這裡只是示範寫法。
 type TcpPoolClient struct {
-	pool chan *TcpConn
+	pool sync.Pool
 }
 
-// NewTcpPoolClient 建一個空池子，池子大小（最多留幾條閒置連線）讀
-// 不會一開始就撥滿。
+// NewTcpPoolClient 用 sync.Pool.New 接手「池子沒有現成連線時要怎麼生一條」，
+// 不用像 channel 版本那樣在 get() 裡手動判斷空了要不要現撥。
 func NewTcpPoolClient() *TcpPoolClient {
 	return &TcpPoolClient{
-		pool: make(chan *TcpConn, 24),
+		pool: sync.Pool{
+			New: func() any {
+				return NewTcpConn()
+			},
+		},
 	}
 }
 
-// get 借一條連線：池子裡有現成的就直接拿，沒有的話（池子空或已達上限被借光）就現撥一條新的，
-// 所以真正並發數不受池子大小限制，池子大小只限制「閒置不用時最多留幾條」。
+// get 跟 sync.Pool 借一條連線；New 撥號失敗時會回傳 (*TcpConn)(nil)，
+// 這裡要把它轉成 error，不然呼叫端會拿到一個看起來非 nil 介面、實際上是 nil 指標的 *TcpConn。
 func (oSelf *TcpPoolClient) get() (*TcpConn, error) {
-	select {
-	case oConn := <-oSelf.pool:
-		return oConn, nil
-	default:
-		return NewTcpConn()
+	oTcpConn, _ := oSelf.pool.Get().(*TcpConn)
+	if oTcpConn == nil {
+		return nil, ErrTcpDialFailed
 	}
+	return oTcpConn, nil
 }
 
-// put 把用完的連線還回池子；池子已經滿了就直接把這條連線關掉，不強留超過上限的閒置連線。
-func (oSelf *TcpPoolClient) put(oConn *TcpConn) {
-	select {
-	case oSelf.pool <- oConn:
-	default:
-		oConn.Close()
-	}
+// put 把用完的連線還給 sync.Pool；沒有「池子滿了」這種狀態，
+// 沒有 Close 的分支——sync.Pool 本身沒有提供「歸還時順便處理掉」的 hook。
+func (oSelf *TcpPoolClient) put(oTcpConn *TcpConn) {
+	oSelf.pool.Put(oTcpConn)
 }

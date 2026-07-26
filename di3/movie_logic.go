@@ -4,6 +4,8 @@ type MovieLogic struct {
 	*MovieModel
 }
 
-func NewMovieLogic() *MovieLogic {
-	return &MovieLogic{}
+func NewMovieLogic(oMovieModel *MovieModel) *MovieLogic {
+	return &MovieLogic{
+		MovieModel: oMovieModel,
+	}
 }

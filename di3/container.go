@@ -10,7 +10,7 @@ package main
 
 func InitContainer() *Container {
 	movieModel := NewMovieModel()
-	movieLogic := NewMovieLogic()
+	movieLogic := NewMovieLogic(movieModel)
 	movieController := NewMovieController()
 	container := &Container{
 		MovieModel:      movieModel,

@@ -2,22 +2,20 @@ package main
 
 import (
 	"bufio"
-	"context"
 	"errors"
 	"net"
 	"sync"
-
-	"golang.org/x/sync/semaphore"
 )
 
 const (
 	tcpMaxBodyLength = 1 << 12 // 4KB，避免錯誤/惡意的長度前綴把記憶體打爆
-	tcpPoolMaxSize   = 24      // 連線總數上限
+	tcpPoolMaxSize   = 24      // 連線總數上限，sync.Cond 版本才做得到「真的設上限」這件事
 )
 
 var (
 	ErrTcpBodyTooLarge   = errors.New("tcp: body too large")
 	ErrTcpMethodNotFound = errors.New("tcp: method not found")
+	ErrTcpDialFailed     = errors.New("tcp: dial failed")
 )
 
 // tcpConn 是池子裡實際借還的單位：一條 net.Conn 綁一個專屬的 bufio.Reader。
@@ -29,16 +27,16 @@ type TcpConn struct {
 }
 
 // 跟 TcpClient.NewTcpClient 的做法一致。
-func NewTcpConn() (*TcpConn, error) {
+func NewTcpConn() *TcpConn {
 	oConn, err := net.Dial("tcp", "127.0.0.1:8800")
 	if err != nil {
-		return nil, err
+		return nil
 	}
 
 	return &TcpConn{
 		conn:   oConn,
 		reader: bufio.NewReader(oConn),
-	}, nil
+	}
 }
 
 func (oSelf *TcpConn) Write(aBuf []byte) (int, error) {
@@ -49,59 +47,73 @@ func (oSelf *TcpConn) Close() error {
 	return oSelf.conn.Close()
 }
 
-// TcpPoolClient 用 golang.org/x/sync/semaphore 做連接池：用信號量限制「同時最多
-// 幾條連線在使用中」（tcpPoolMaxSize），概念上跟 sync.Cond 版本的 max 是同一件事，
-// 差別是等待/喚醒交給 semaphore.Weighted 處理，不用自己手寫 cond.Wait()/Signal()，
-// 而且 Acquire 吃 context，天生就支援「最多等信號量多久」或「外部取消就不等了」。
-// 信號量只負責「准不准借」，「借到的是哪一條連線」還是要自己用 mutex+idle 維護。
+// TcpPoolClient 混合版：free-list 交給 sync.Pool（借它 per-P 無鎖快路徑做
+// 連線重複利用），硬上限交給 sync.Cond 顧（sync.Pool 本身完全沒有 cap 概念）。
+// total 只用來當「同時借出去的連線數」這個名額計數器，不再存實際的閒置連線——
+// 閒置連線本體全部交給 sync.Pool 管，get()/put() 都不用再手動操作 slice。
 type TcpPoolClient struct {
-	sem   *semaphore.Weighted
+	pool  sync.Pool // 快路徑：per-P 無鎖 free-list，命中時完全不用碰下面的 mutex
 	mutex sync.Mutex
-	idle  []*TcpConn
+	cond  *sync.Cond
+	total int // 目前借出去（get 到 put/discard 之間）的連線數
+	max   int // 同時借出去的連線數上限
 }
 
 func NewTcpPoolClient() *TcpPoolClient {
-	return &TcpPoolClient{
-		sem: semaphore.NewWeighted(tcpPoolMaxSize),
+	oSelf := &TcpPoolClient{
+		max: tcpPoolMaxSize,
 	}
+	oSelf.cond = sync.NewCond(&oSelf.mutex)
+	oSelf.pool.New = func() any {
+		return NewTcpConn()
+	}
+	return oSelf
 }
 
-// get 先跟信號量要一個名額：池子滿了就卡在 Acquire 裡，直到有人 put()／discard()
-// 釋放名額，或是 ctx 被取消/超時。拿到名額後優先用現成閒置的連線，沒有才現撥新的。
-func (oSelf *TcpPoolClient) get(ctx context.Context) (*TcpConn, error) {
-	if err := oSelf.sem.Acquire(ctx, 1); err != nil {
-		return nil, err
-	}
-
+// get 先跟 cond 要一個名額：total 到上限就 cond.Wait() 掛起，
+// 被叫醒後重新檢查一次（for 而不是 if，Wait 被叫醒不代表名額一定還在）。
+// 名額到手後才問 sync.Pool 要連線——free-list 有現成的就走無鎖快路徑直接拿，
+// 沒有的話 sync.Pool 自己呼叫 New（也就是 NewTcpConn）現撥一條。
+func (oSelf *TcpPoolClient) get() (*TcpConn, error) {
 	oSelf.mutex.Lock()
-	if iLen := len(oSelf.idle); iLen > 0 {
-		oTcpConn := oSelf.idle[iLen-1]
-		oSelf.idle = oSelf.idle[:iLen-1]
-		oSelf.mutex.Unlock()
-		return oTcpConn, nil
+	for oSelf.total >= oSelf.max {
+		oSelf.cond.Wait()
 	}
+	oSelf.total++
 	oSelf.mutex.Unlock()
 
-	oTcpConn, err := NewTcpConn()
-	if err != nil {
-		oSelf.sem.Release(1) // 撥號失敗，名額沒真的用到，要還回去，不然永久少一個名額
-		return nil, err
+	oTcpConn, _ := oSelf.pool.Get().(*TcpConn)
+	if oTcpConn == nil {
+		// New 撥號失敗，名額沒真的用到，要還回去，不然這個名額永久消失
+		oSelf.mutex.Lock()
+		oSelf.total--
+		oSelf.mutex.Unlock()
+		oSelf.cond.Signal()
+		return nil, ErrTcpDialFailed
 	}
 	return oTcpConn, nil
 }
 
-// put 把還能用的連線放回閒置池，並釋放一個信號量名額給下一個等待中的 get()。
+// put 把還能用的連線丟回 sync.Pool（等下一次 get() 重複利用），
+// 並把名額還給 total，叫醒一個可能正在 get() 裡等待的 goroutine。
 func (oSelf *TcpPoolClient) put(oTcpConn *TcpConn) {
+	oSelf.pool.Put(oTcpConn)
+
 	oSelf.mutex.Lock()
-	oSelf.idle = append(oSelf.idle, oTcpConn)
+	oSelf.total--
 	oSelf.mutex.Unlock()
 
-	oSelf.sem.Release(1)
+	oSelf.cond.Signal()
 }
 
-// discard 連線壞掉時呼叫：關掉連線、不放回 idle，但信號量名額一樣要釋放，
-// 不然這個名額會永久卡死，池子會越用越小。
+// discard 連線壞掉、不能再借出去時呼叫：直接關掉、不丟回 sync.Pool，
+// 但名額一樣要還，不然這個名額會永久卡死，池子會越用越小。
 func (oSelf *TcpPoolClient) discard(oTcpConn *TcpConn) {
 	oTcpConn.Close()
-	oSelf.sem.Release(1)
+
+	oSelf.mutex.Lock()
+	oSelf.total--
+	oSelf.mutex.Unlock()
+
+	oSelf.cond.Signal()
 }

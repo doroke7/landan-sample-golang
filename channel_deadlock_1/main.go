@@ -12,7 +12,7 @@ func main() {
 	// 無容量的 channel，如果只有send => 會阻塞
 	// 無容量的 channel，如果只有recv => 會dead lock
 
-	ch := make(chan int, 1)
+	ch := make(chan int)
 
 	ch <- 100
 

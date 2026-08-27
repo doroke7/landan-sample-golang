@@ -46,7 +46,7 @@ func (oSelf *DecryptionMiddleware) Handle() gin.HandlerFunc {
 		// 小写字段是 unexported 的，json.Unmarshal 无法访问，
 		// 如果你写小写，直接跳过，解出来永远是空值。
 
-		oKeys, _ := utility.JsonDecode[struct {
+		oKeys, _ := pkgUtility.JsonDecode[struct {
 			Key string `json:"key"`
 			Iv  string `json:"iv"`
 		}](sKeys)
@@ -60,14 +60,14 @@ func (oSelf *DecryptionMiddleware) Handle() gin.HandlerFunc {
 		sAuthorizaion := oSelf.aesHelper.Decrypt(sHeaderA, bootstrap.CONFIG.ADMIN.JWT.KEY, bootstrap.CONFIG.ADMIN.JWT.IV)
 		oContext.Set("Authrization", sAuthorizaion)
 
-		oOption, _ := utility.JsonDecode[struct {
+		oOption, _ := pkgUtility.JsonDecode[struct {
 			Size  string `json:"size"`
 			Page  string `json:"page"`
 			AppId string `json:"app_id"`
 		}](sO)
 
-		oSearch, _ := utility.JsonDecode[map[string]interface{}](sS)
-		oParam, _ := utility.JsonDecode[map[string]interface{}](sP)
+		oSearch, _ := pkgUtility.JsonDecode[map[string]interface{}](sS)
+		oParam, _ := pkgUtility.JsonDecode[map[string]interface{}](sP)
 
 		oUrlQuery := oContext.Request.URL.Query()
 

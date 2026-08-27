@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"net"
 
-	pkg "example/pkg"
+	pkgTcp "example/pkg/tcp"
 	types "example/types"
 )
 
@@ -16,7 +16,7 @@ func main() {
 	}
 	defer oConn.Close()
 
-	oTcp := pkg.NewTcpRouter()
+	oTcp := pkgTcp.NewTcpRouter()
 
 	aFrame, err := oTcp.EncodeFrame(types.TcpRequest{
 		Method: "Admin.Authentication.Authenticator.SignIn",

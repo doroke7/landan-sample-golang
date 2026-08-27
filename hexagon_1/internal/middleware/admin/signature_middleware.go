@@ -37,7 +37,7 @@ func (oSelf *SignatureMiddleware) Handle() gin.HandlerFunc {
 		// NOTE: 不要把 未加密的 search, option, param, 都加下去簽名，多次一舉
 		aStrings := []string{sVer, sVersion, sK, sTime, sS, sO, sP, bootstrap.CONFIG.ADMIN.SIGNATURE.SALT}
 		sStrings := strings.Join(aStrings, ",")
-		sMd5Signature := utility.Md5(sStrings)
+		sMd5Signature := pkgUtility.Md5(sStrings)
 
 		if bootstrap.CONFIG.ADMIN.SIGNATURE.STATUS == true {
 			if sMd5Signature != sHeaderSignature {

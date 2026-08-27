@@ -33,7 +33,7 @@ func (oSelf *RequestMiddleware) Handle() gin.HandlerFunc {
 			oUrlQuery := oContext.Request.URL.Query()
 
 			if sQueryOption != "" {
-				oOption, _ := utility.JsonDecode[struct {
+				oOption, _ := pkgUtility.JsonDecode[struct {
 					Size  string `json:"size"`
 					Page  string `json:"page"`
 					AppId string `json:"app_id"`
@@ -43,7 +43,7 @@ func (oSelf *RequestMiddleware) Handle() gin.HandlerFunc {
 			}
 
 			if sQuerySearch != "" {
-				oSearch, _ := utility.JsonDecode[map[string]interface{}](sQuerySearch)
+				oSearch, _ := pkgUtility.JsonDecode[map[string]interface{}](sQuerySearch)
 
 				oSelf.Flatten(oUrlQuery, "search", oSearch)
 

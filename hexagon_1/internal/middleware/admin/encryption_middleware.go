@@ -43,8 +43,8 @@ func (oSelf *EncryptionMiddleware) Handle() gin.HandlerFunc {
 
 		sMessage := mMessage.(string)
 
-		sTime := utility.Time[string](false)
-		sResult, _ := utility.JsonEncode(mResult)
+		sTime := pkgUtility.Time[string](false)
+		sResult, _ := pkgUtility.JsonEncode(mResult)
 
 		sR := oSelf.aesHelper.Encrypt(sResult, sKey, sIv)
 		sC := oSelf.aesHelper.Encrypt(sCode, sKey, sIv)
@@ -56,7 +56,7 @@ func (oSelf *EncryptionMiddleware) Handle() gin.HandlerFunc {
 
 		sString := strings.Join(aStrings, ",")
 
-		sHeaderSignature := utility.Md5(sString)
+		sHeaderSignature := pkgUtility.Md5(sString)
 
 		oContext.Writer.Header().Set("Time", sTime)
 		oContext.Writer.Header().Set("Signature", sHeaderSignature)

@@ -83,8 +83,8 @@ func (oSelf *ErrorMiddleware) Handle() gin.HandlerFunc {
 			mResult, _ := oContext.Get("result")
 			mMessage, _ := oContext.Get("message")
 
-			sKey := utility.RandString(16)
-			sIv := utility.RandString(16)
+			sKey := pkgUtility.RandString(16)
+			sIv := pkgUtility.RandString(16)
 
 			sCode := fmt.Sprintf("%d", mCode)
 			sMessage := mMessage.(string)
@@ -94,17 +94,17 @@ func (oSelf *ErrorMiddleware) Handle() gin.HandlerFunc {
 				"key": sKey,
 				"iv":  sIv,
 			}
-			sKeys, _ := utility.JsonEncode(oKeys)
+			sKeys, _ := pkgUtility.JsonEncode(oKeys)
 
-			sTime := utility.Time[string](false)
-			sResultJson, _ := utility.JsonEncode(mResult)
+			sTime := pkgUtility.Time[string](false)
+			sResultJson, _ := pkgUtility.JsonEncode(mResult)
 
 			sR := oSelf.aesHelper.Encrypt(sResultJson, sKey, sIv)
 			sC := oSelf.aesHelper.Encrypt(sCode, sKey, sIv)
 			sM := oSelf.aesHelper.Encrypt(sMessage, sKey, sIv)
 
 			aStrings := []string{sKeys, sTime, sC, sM, sR, bootstrap.CONFIG.ADMIN.SIGNATURE.SALT}
-			sHeaderSignature := utility.Md5(strings.Join(aStrings, ","))
+			sHeaderSignature := pkgUtility.Md5(strings.Join(aStrings, ","))
 
 			oContext.Writer.Header().Set("Authorization", "")
 			oContext.Writer.Header().Set("Time", sTime)

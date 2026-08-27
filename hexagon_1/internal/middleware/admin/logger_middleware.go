@@ -23,7 +23,7 @@ func NewLoggerMiddleware(oAbstractMiddleware *AbstractMiddleware) *LoggerMiddlew
 func (oSelf *LoggerMiddleware) Handle() gin.HandlerFunc {
 	return func(oContext *gin.Context) {
 
-		iTime1 := utility.Time[int](true)
+		iTime1 := pkgUtility.Time[int](true)
 		sPath := oContext.Request.URL.Path
 		sRawQuery := oContext.Request.URL.RawQuery
 		oMapHeaders := oContext.Request.Header
@@ -35,7 +35,7 @@ func (oSelf *LoggerMiddleware) Handle() gin.HandlerFunc {
 		)
 
 		oContext.Next()
-		iTime2 := utility.Time[int](true)
+		iTime2 := pkgUtility.Time[int](true)
 
 		oSelf.loggerHelper.Logger.Info(
 			"結束 http",

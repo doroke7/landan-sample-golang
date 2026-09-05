@@ -52,3 +52,16 @@ func main() {
 	db.Model(&User{}).Where("age > ?", 20).Count(&count)
 	fmt.Println("Count:", count)
 }
+
+/*
+
+
+操作                    沒匹配到資料時
+------------------------------------------------
+Find()                      RowsAffected = 0, Error = nil
+Delete()                    RowsAffected = 0, Error = nil
+Update() / Updates()        RowsAffected = 0, Error = nil
+First(), Take(), Last()     Error = gorm.ErrRecordNotFound
+
+
+*/

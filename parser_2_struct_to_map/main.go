@@ -24,13 +24,16 @@ func main() {
 		panic(err)
 	}
 
-	var userMap map[string]any
+	var userMap1 map[string]any
+	var userMap2 map[string]any
 
-	err = json.Unmarshal(data, &userMap)
+	err = json.Unmarshal(data, &userMap1)
 	if err != nil {
 		panic(err)
 	}
 
-	fmt.Println(userMap)
-	fmt.Println(userMap["name"])
+	userMap2["name"] = user.Name
+
+	fmt.Println(userMap1)
+	fmt.Println(userMap1["name"])
 }

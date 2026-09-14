@@ -59,10 +59,14 @@ func main() {
 		newBalance := currentBalance - 100
 
 		// 2. 【Compare & Write】利用 etcd 的 Txn 進行原子的「比較並交換 (CAS)」
-		txnResp, err := cli.Txn(ctx).
-			If(clientv3.Compare(clientv3.ModRevision(key), "=", mySeenRevision)). // 檢查版本沒變
-			Then(clientv3.OpPut(key, strconv.Itoa(newBalance))).                  // 沒變就寫入
-			Commit()
+		oModRevision := clientv3.ModRevision(key)
+		oCompare := clientv3.Compare(oModRevision, "=", mySeenRevision) // 檢查版本沒變
+		sNewBalance := strconv.Itoa(newBalance)
+		oOpPut := clientv3.OpPut(key, sNewBalance) // 沒變就寫入
+		oTxn := cli.Txn(ctx)
+		oTxnWithIf := oTxn.If(oCompare)
+		oTxnWithThen := oTxnWithIf.Then(oOpPut)
+		txnResp, err := oTxnWithThen.Commit()
 
 		if err != nil {
 			log.Fatalf("事務執行出錯: %v", err)

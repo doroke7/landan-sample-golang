@@ -6,5 +6,9 @@ import (
 )
 
 func NewClient(dsn string) (*grpc.ClientConn, error) {
-	return grpc.NewClient(dsn, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	oCredentials := insecure.NewCredentials()
+	oTransportCredentials := grpc.WithTransportCredentials(oCredentials)
+	oClientConn, oErr := grpc.NewClient(dsn, oTransportCredentials)
+
+	return oClientConn, oErr
 }

@@ -15,7 +15,8 @@ var oSocketCommand = &cobra.Command{
 		oContainer, _ := container.InitContainer()
 
 		oClientRouter := register.ClientInit(oContainer)
-		oClientRouter.Serve(context.Background())
+		oContext := context.Background()
+		oClientRouter.Serve(oContext)
 	},
 }
 

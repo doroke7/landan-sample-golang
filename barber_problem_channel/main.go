@@ -31,7 +31,9 @@ func main() {
 			defer wg.Done()
 
 			// 隨機間隔上門
-			time.Sleep(time.Duration(rand.Intn(800)) * time.Millisecond)
+			iRandomMillis := rand.Intn(800)
+			oSleepDuration := time.Duration(iRandomMillis) * time.Millisecond
+			time.Sleep(oSleepDuration)
 			fmt.Printf("🚶 顧客 %d 走進店裡...", id)
 
 			// 核心原子操作：select 檢查通道有沒有滿

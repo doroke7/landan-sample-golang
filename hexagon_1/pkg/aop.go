@@ -72,14 +72,18 @@ func callerKey(nSkip int) string {
 	if nIdx := strings.Index(sName, "."); nIdx >= 0 {
 		sName = sName[nIdx+1:]
 	}
-	sName = strings.NewReplacer("(*", "", ")", "", ".", ":").Replace(sName)
+	oReplacer := strings.NewReplacer("(*", "", ")", "", ".", ":")
+	sName = oReplacer.Replace(sName)
+
 	return sName
 }
 
 func Md5(aParams ...any) string {
 	aData, _ := json.Marshal(aParams)
 	aHash := md5.Sum(aData)
-	return fmt.Sprintf("%x", aHash)
+	sHash := fmt.Sprintf("%x", aHash)
+
+	return sHash
 }
 
 // Cacheable 類似 Hyperf #[Cacheable]
@@ -95,7 +99,8 @@ func Cacheable[G any](sKey string, oTtl time.Duration, cFn func() (G, error), aP
 		sCacheKey += ":" + Md5(aParams...)
 	}
 
-	aRaw, oErr := oAop.Redis.Get(oAop.Context, sCacheKey).Bytes()
+	oGetResult := oAop.Redis.Get(oAop.Context, sCacheKey)
+	aRaw, oErr := oGetResult.Bytes()
 	if oErr == nil {
 		var oResult G
 		if oJsonErr := json.Unmarshal(aRaw, &oResult); oJsonErr == nil {
@@ -162,7 +167,8 @@ func CacheEvictByPattern(sPattern string, cFn func() error) error {
 
 	var nCursor uint64
 	for {
-		aKeys, nNext, oErr := oAop.Redis.Scan(oAop.Context, nCursor, sPattern, 100).Result()
+		oScanResult := oAop.Redis.Scan(oAop.Context, nCursor, sPattern, 100)
+		aKeys, nNext, oErr := oScanResult.Result()
 		if oErr != nil {
 			break
 		}

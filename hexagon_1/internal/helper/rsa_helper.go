@@ -48,7 +48,9 @@ func (oSelf *RsaHelper) Encrypt(sInput, sPublicKey string) (string, error) {
 		byEncrypted = append(byEncrypted, byChunk...)
 	}
 
-	return base64.StdEncoding.EncodeToString(byEncrypted), nil
+	sEncrypted := base64.StdEncoding.EncodeToString(byEncrypted)
+
+	return sEncrypted, nil
 }
 
 // Decrypt decrypts base64-encoded sInput with the provided PEM private key (chunked by key size).

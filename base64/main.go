@@ -14,7 +14,9 @@ func Base64ToURLBase64(s string) string {
 	}
 
 	// URL Base64 encode（不帶 padding）
-	return base64.RawURLEncoding.EncodeToString(data)
+	encoded := base64.RawURLEncoding.EncodeToString(data)
+
+	return encoded
 }
 
 func main() {

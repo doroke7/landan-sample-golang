@@ -23,7 +23,8 @@ func NewUserHandler(useCase port.UserUsecase, oAbstractHandler *abstract.Abstrac
 
 func (oSelf *UserHandler) CreateUser(ctx context.Context, req *pb.CreateUserRequest) (*pb.CreateUserResponse, error) {
 
-	user, err := oSelf.userUsecase.CreateUser(req.GetName())
+	sName := req.GetName()
+	user, err := oSelf.userUsecase.CreateUser(sName)
 	if err != nil {
 		return nil, err
 	}
@@ -38,7 +39,8 @@ func (oSelf *UserHandler) CreateUser(ctx context.Context, req *pb.CreateUserRequ
 
 func (oSelf *UserHandler) GetUser(ctx context.Context, req *pb.GetUserRequest) (*pb.GetUserResponse, error) {
 
-	user, err := oSelf.userUsecase.GetUser(int(req.GetId()))
+	iId := req.GetId()
+	user, err := oSelf.userUsecase.GetUser(int(iId))
 	if err != nil {
 		return nil, err
 	}

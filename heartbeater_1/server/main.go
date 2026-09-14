@@ -14,20 +14,19 @@ import (
 
 func main() {
 
-	server := grpc.NewServer(
-		grpc.KeepaliveParams(
-			keepalive.ServerParameters{
-				Time:    1 * time.Second,
-				Timeout: 5 * time.Second,
-			},
-		),
-		grpc.KeepaliveEnforcementPolicy(
-			keepalive.EnforcementPolicy{
-				MinTime:             10 * time.Second,
-				PermitWithoutStream: true,
-			},
-		),
-	)
+	keepaliveParams := keepalive.ServerParameters{
+		Time:    1 * time.Second,
+		Timeout: 5 * time.Second,
+	}
+	keepaliveParamsOption := grpc.KeepaliveParams(keepaliveParams)
+
+	keepaliveEnforcementPolicy := keepalive.EnforcementPolicy{
+		MinTime:             10 * time.Second,
+		PermitWithoutStream: true,
+	}
+	keepaliveEnforcementPolicyOption := grpc.KeepaliveEnforcementPolicy(keepaliveEnforcementPolicy)
+
+	server := grpc.NewServer(keepaliveParamsOption, keepaliveEnforcementPolicyOption)
 
 	pb.RegisterHeartbeaterServer(server, &service.HeartbeaterService{})
 

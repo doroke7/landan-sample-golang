@@ -12,8 +12,11 @@ type AppUserController struct {
 // 錯誤的 DI 範例
 // 錯誤寫法：把 NewAppUserModel （注入物件）寫在 NewMovieController（被注入物件） 裡面
 func NewAppUserController() *AppUserController {
+	oAppUserModel := NewAppUserModel()
+	oAppUserLogic := NewAppUserLogic()
+
 	return &AppUserController{
-		AppUserModel: NewAppUserModel(),
-		AppUserLogic: NewAppUserLogic(),
+		AppUserModel: oAppUserModel,
+		AppUserLogic: oAppUserLogic,
 	}
 }

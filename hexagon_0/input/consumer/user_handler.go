@@ -61,12 +61,14 @@ func (oSelf *UserConsumer) Start(ctx context.Context) error {
 
 func (oSelf *UserConsumer) handle(msg amqp.Delivery) {
 	var payload createUserMessage
-	if err := json.Unmarshal(msg.Body, &payload); err != nil {
+	err := json.Unmarshal(msg.Body, &payload)
+	if err != nil {
 		msg.Nack(false, false)
 		return
 	}
 
-	if _, err := oSelf.userUsecase.CreateUser(payload.Name); err != nil {
+	_, err = oSelf.userUsecase.CreateUser(payload.Name)
+	if err != nil {
 		log.Printf("create user failed: %v", err)
 		msg.Nack(false, true)
 		return
@@ -76,5 +78,7 @@ func (oSelf *UserConsumer) handle(msg amqp.Delivery) {
 }
 
 func (oSelf *UserConsumer) Close() error {
-	return oSelf.conn.Close()
+	err := oSelf.conn.Close()
+
+	return err
 }

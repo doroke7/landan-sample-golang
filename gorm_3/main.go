@@ -70,7 +70,8 @@ type StudentClass struct {
 }
 
 func main() {
-	db, err := gorm.Open(sqlite.Open("file::memory:?cache=shared"), &gorm.Config{})
+	oDialector := sqlite.Open("file::memory:?cache=shared")
+	db, err := gorm.Open(oDialector, &gorm.Config{})
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -100,7 +101,8 @@ func main() {
 
 	// ===== 1. Preload：Student -> 他修的 Classes =====
 	var oAlice Student
-	db.Preload("Classes").First(&oAlice, "name = ?", "Alice")
+	oAlicePreload := db.Preload("Classes")
+	oAlicePreload.First(&oAlice, "name = ?", "Alice")
 	fmt.Printf("\n[Student->Classes] %s 修：", oAlice.Name)
 	for _, o := range oAlice.Classes {
 		fmt.Printf(" %s", o.Name)
@@ -109,7 +111,8 @@ func main() {
 
 	// ===== 2. 反向 Preload：Class -> 修課的 Students =====
 	var oMathClass Class
-	db.Preload("Students").First(&oMathClass, "name = ?", "數學")
+	oMathClassPreload := db.Preload("Students")
+	oMathClassPreload.First(&oMathClass, "name = ?", "數學")
 	fmt.Printf("[Class->Students]  %s 班：", oMathClass.Name)
 	for _, o := range oMathClass.Students {
 		fmt.Printf(" %s(%d)", o.Name, o.Age)
@@ -117,27 +120,36 @@ func main() {
 	fmt.Println()
 
 	// ===== 3. Association API：Alice 加簽體育、退選英文 =====
-	db.Model(&oAlice).Association("Classes").Append(&oPE)
-	db.Model(&oAlice).Association("Classes").Delete(&oEnglish)
+	oAliceModel := db.Model(&oAlice)
+	oAliceClasses := oAliceModel.Association("Classes")
+	oAliceClasses.Append(&oPE)
+	oAliceClasses.Delete(&oEnglish)
+	iAliceClassCount := oAliceClasses.Count()
 	fmt.Printf("[Association]      %s 加體育退英文後，共 %d 門\n",
-		oAlice.Name, db.Model(&oAlice).Association("Classes").Count())
+		oAlice.Name, iAliceClassCount)
 
 	// ===== 4. join table 額外欄位：直接操作 StudentClass =====
-	db.Model(&StudentClass{}).
-		Where("student_id = ? AND class_id = ?", oAlice.Id, oMath.Id).
-		Updates(map[string]any{"score": 95, "enrolled_at": time.Now()})
+	oNow := time.Now()
+	oStudentClassUpdates := map[string]any{"score": 95, "enrolled_at": oNow}
+	oStudentClassModel := db.Model(&StudentClass{})
+	oStudentClassQuery := oStudentClassModel.Where("student_id = ? AND class_id = ?", oAlice.Id, oMath.Id)
+	oStudentClassQuery.Updates(oStudentClassUpdates)
 
 	var oSC StudentClass
 	db.First(&oSC, "student_id = ? AND class_id = ?", oAlice.Id, oMath.Id)
+	sEnrolledAt := oSC.EnrolledAt.Format("2006-01-02")
 	fmt.Printf("[join extra]       %s 的數學成績：%d（%s 加入）\n",
-		oAlice.Name, oSC.Score, oSC.EnrolledAt.Format("2006-01-02"))
+		oAlice.Name, oSC.Score, sEnrolledAt)
 
 	// ===== 5. Replace：Bob 的課整組換成只剩數學 =====
 	var oBob Student
 	db.First(&oBob, "name = ?", "Bob")
-	db.Model(&oBob).Association("Classes").Replace(&oMath)
+	oBobModel := db.Model(&oBob)
+	oBobClasses := oBobModel.Association("Classes")
+	oBobClasses.Replace(&oMath)
 
-	db.Preload("Classes").First(&oBob, oBob.Id)
+	oBobPreload := db.Preload("Classes")
+	oBobPreload.First(&oBob, oBob.Id)
 	fmt.Printf("[Replace]          %s 現在只修：", oBob.Name)
 	for _, o := range oBob.Classes {
 		fmt.Printf(" %s", o.Name)

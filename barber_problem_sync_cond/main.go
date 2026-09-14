@@ -30,7 +30,9 @@ func main() {
 		go func(customerID int) {
 			defer wg.Done()
 			// 隨機間隔時間，模擬顧客隨機上門
-			time.Sleep(time.Duration(rand.Intn(1000)) * time.Millisecond)
+			iRandomMillis := rand.Intn(1000)
+			oSleepDuration := time.Duration(iRandomMillis) * time.Millisecond
+			time.Sleep(oSleepDuration)
 			shop.customer(customerID)
 		}(i)
 	}

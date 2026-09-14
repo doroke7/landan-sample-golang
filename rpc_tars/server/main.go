@@ -15,7 +15,8 @@ func main() {
 	// 【步驟 C】把「靈魂」注入到「肉體」，並給它一個對外廣播的名字 (Obj)
 	sPath := cfg.App + "." + cfg.Server + ".Hello"
 
-	oProtocolModuleHello.AddServantWithContext(service.NewHelloService(), sPath) // <-- 這行就是【注入】！
+	oHelloService := service.NewHelloService()
+	oProtocolModuleHello.AddServantWithContext(oHelloService, sPath) // <-- 這行就是【注入】！
 
 	// 啟動監聽
 	tars.Run()

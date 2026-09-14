@@ -42,6 +42,7 @@ func main() {
 func mapping(oConfig Config, sName string) string {
 	oValue := reflect.ValueOf(oConfig)
 	oField := oValue.FieldByName(sName)
+	sValue := oField.String()
 
-	return oField.String()
+	return sValue
 }

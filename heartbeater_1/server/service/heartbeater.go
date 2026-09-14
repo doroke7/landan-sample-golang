@@ -13,8 +13,11 @@ type HeartbeaterService struct {
 }
 
 func (s *HeartbeaterService) Ping(ctx context.Context, req *pb.PingRequest) (*pb.PongResponse, error) {
+	now := time.Now()
+	serverTime := now.Unix()
+
 	return &pb.PongResponse{
 		Status:     "OK",
-		ServerTime: time.Now().Unix(),
+		ServerTime: serverTime,
 	}, nil
 }

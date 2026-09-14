@@ -16,7 +16,8 @@ func main() {
 	}
 
 	oServer := grpc.NewServer()
-	pb.RegisterGreeterServer(oServer, service.NewGreeterService())
+	oGreeterService := service.NewGreeterService()
+	pb.RegisterGreeterServer(oServer, oGreeterService)
 
 	log.Println("gRPC 伺服器啟動於 :50051...")
 	if err := oServer.Serve(oListen); err != nil {

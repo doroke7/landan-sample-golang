@@ -37,10 +37,11 @@ func main() {
 
 	// ===== 1. AdminRole：先查現有角色，等等挑一個綁給新建的 AdminUser =====
 	var aAdminRoles []domain.AdminRole
-	if oErr := oDB.WithContext(oContext).
+	oResult := oDB.WithContext(oContext).
 		Where("deleted_at = ?", "2038-01-19 03:14:07").
-		Find(&aAdminRoles).Error; oErr != nil {
-		log.Fatal(oErr)
+		Find(&aAdminRoles)
+	if oResult.Error != nil {
+		log.Fatal(oResult.Error)
 	}
 
 	fmt.Println("[AdminRole] 目前角色：")
@@ -54,7 +55,9 @@ func main() {
 	}
 
 	// ===== 2. AdminUser：透過 logic 層新增一筆，同一個 transaction 裡順便綁角色 =====
-	sName := fmt.Sprintf("demo_%d", time.Now().UnixNano())
+	oNow := time.Now()
+	iNanoTimestamp := oNow.UnixNano()
+	sName := fmt.Sprintf("demo_%d", iNanoTimestamp)
 	sPassword := "12345678"
 
 	oValue := &domain.AdminUserValue{

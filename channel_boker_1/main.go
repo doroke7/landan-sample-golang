@@ -99,11 +99,12 @@ func main() {
 	// publisher
 	for i := 1; i <= 3; i++ {
 
+		sMessage := fmt.Sprintf(
+			"event %d",
+			i,
+		)
 		broker.Publish(Event{
-			Message: fmt.Sprintf(
-				"event %d",
-				i,
-			),
+			Message: sMessage,
 		})
 
 		time.Sleep(time.Second)

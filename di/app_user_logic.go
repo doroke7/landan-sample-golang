@@ -6,8 +6,9 @@ type AppUserLogic struct {
 
 // 錯誤的 DI 範例
 func NewAppUserLogic() *AppUserLogic {
+	oAppUserModel := NewAppUserModel()
 
 	return &AppUserLogic{
-		AppUserModel: NewAppUserModel(),
+		AppUserModel: oAppUserModel,
 	}
 }

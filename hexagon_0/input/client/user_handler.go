@@ -21,10 +21,12 @@ type UserHandler struct {
 }
 
 func NewUserHandler(conn *grpc.ClientConn, useCase port.UserUsecase, oAbstractHandler *abstract.AbstractHandler) *UserHandler {
+	oClient := pb.NewUserServiceClient(conn)
+
 	return &UserHandler{
 		AbstractHandler: oAbstractHandler,
 		userUsecase:     useCase,
-		client:          pb.NewUserServiceClient(conn),
+		client:          oClient,
 	}
 }
 
@@ -44,7 +46,9 @@ func (oSelf *UserHandler) Start(ctx context.Context) error {
 			return err
 		}
 
-		if _, err := oSelf.userUsecase.CreateUser(user.GetName()); err != nil {
+		sName := user.GetName()
+		_, err = oSelf.userUsecase.CreateUser(sName)
+		if err != nil {
 			log.Printf("create user failed: %v", err)
 		}
 	}

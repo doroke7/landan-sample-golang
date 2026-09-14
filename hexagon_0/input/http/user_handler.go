@@ -23,15 +23,18 @@ func NewUserHandler(useCase port.UserUsecase, oAbstractHandler *abstract.Abstrac
 
 func (oSelf *UserHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
 
-	name := r.URL.Query().Get("name")
+	oQuery := r.URL.Query()
+	name := oQuery.Get("name")
 
 	user, err := oSelf.userUsecase.CreateUser(name)
 	if err != nil {
-		http.Error(w, err.Error(), 500)
+		sErrorMessage := err.Error()
+		http.Error(w, sErrorMessage, 500)
 		return
 	}
 
-	json.NewEncoder(w).Encode(user)
+	oEncoder := json.NewEncoder(w)
+	oEncoder.Encode(user)
 }
 
 func (oSelf *UserHandler) GetUser(w http.ResponseWriter, r *http.Request) {
@@ -42,9 +45,11 @@ func (oSelf *UserHandler) GetUser(w http.ResponseWriter, r *http.Request) {
 
 	user, err := oSelf.userUsecase.GetUser(id)
 	if err != nil {
-		http.Error(w, err.Error(), 404)
+		sErrorMessage := err.Error()
+		http.Error(w, sErrorMessage, 404)
 		return
 	}
 
-	json.NewEncoder(w).Encode(user)
+	oEncoder := json.NewEncoder(w)
+	oEncoder.Encode(user)
 }

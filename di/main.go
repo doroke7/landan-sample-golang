@@ -13,7 +13,8 @@ func main() {
 
 	// 正確的 Di, 全部的 Movie 數據模型共用
 	oMovieModel := NewMovieModel()
-	oMovieController := NewMovieController(oMovieModel, NewMovieLogic(oMovieModel))
+	oMovieLogic := NewMovieLogic(oMovieModel)
+	oMovieController := NewMovieController(oMovieModel, oMovieLogic)
 	fmt.Printf("Movie controller: %v\n", oMovieController)
 
 	oContainer := Container()
@@ -27,7 +28,8 @@ func main() {
 	})
 
 	if err != nil {
-		panic(fmt.Sprintf("❌ 容器跨套件注入或路由註冊失敗：%v", err))
+		sError := fmt.Sprintf("❌ 容器跨套件注入或路由註冊失敗：%v", err)
+		panic(sError)
 	}
 
 }

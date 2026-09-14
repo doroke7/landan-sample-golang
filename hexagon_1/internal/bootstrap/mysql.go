@@ -32,7 +32,9 @@ func NewMysql() (*gorm.DB, error) {
 		CONFIG.DATABASE.CHARSET,
 	)
 
-	oDB, err := gorm.Open(mysql.Open(sDSN), &gorm.Config{})
+	oDialector := mysql.Open(sDSN)
+	oConfig := &gorm.Config{}
+	oDB, err := gorm.Open(oDialector, oConfig)
 	if err != nil {
 		return nil, err
 	}

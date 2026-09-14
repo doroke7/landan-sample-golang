@@ -186,7 +186,8 @@ func init() {
 
 	viper.SetConfigType("yaml")
 	viper.AutomaticEnv()                                   // 读取环境变量
-	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_")) // 嵌套字段用 _ 连接
+	oReplacer := strings.NewReplacer(".", "_") // 嵌套字段用 _ 连接
+	viper.SetEnvKeyReplacer(oReplacer)
 
 	// 自动读取 ./config/ 目录下所有 yaml 文件，文件名作为顶层命名空间
 	// 例: db.yaml 内的 host → db.host
@@ -195,7 +196,9 @@ func init() {
 		log.Fatalf("failed to glob config dir: %v", oErr)
 	}
 	for _, sFile := range aFiles {
-		sName := strings.TrimSuffix(filepath.Base(sFile), filepath.Ext(sFile))
+		sBase := filepath.Base(sFile)
+		sExt := filepath.Ext(sFile)
+		sName := strings.TrimSuffix(sBase, sExt)
 
 		oSub := viper.New()
 		oSub.SetConfigFile(sFile)
@@ -203,13 +206,16 @@ func init() {
 			log.Fatalf("failed to read config %s: %v", sFile, oErr)
 		}
 		// 以文件名包一层后合并到主 viper
-		viper.MergeConfigMap(map[string]interface{}{
-			sName: oSub.AllSettings(),
-		})
+		oSettings := oSub.AllSettings()
+		oConfigMap := map[string]interface{}{
+			sName: oSettings,
+		}
+		viper.MergeConfigMap(oConfigMap)
 	}
 
 	// 自动绑定所有 key，让环境变量覆盖嵌套字段生效
-	for _, sKey := range viper.AllKeys() {
+	aKeys := viper.AllKeys()
+	for _, sKey := range aKeys {
 		_ = viper.BindEnv(sKey)
 	}
 

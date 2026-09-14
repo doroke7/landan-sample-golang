@@ -20,11 +20,13 @@ func PKCS7Padding(ciphertext []byte, blockSize int) []byte {
 func PKCS7UnPadding(origData []byte) ([]byte, error) {
 	length := len(origData)
 	if length == 0 {
-		return nil, errors.New("数据为空")
+		err := errors.New("数据为空")
+		return nil, err
 	}
 	unpadding := int(origData[length-1])
 	if unpadding > length {
-		return nil, errors.New("解密填充格式错误")
+		err := errors.New("解密填充格式错误")
+		return nil, err
 	}
 	return origData[:(length - unpadding)], nil
 }
@@ -39,7 +41,8 @@ func EncryptCBC(plaintext string, key []byte, iv []byte) (string, error) {
 	blockSize := block.BlockSize()
 	// 校验 IV 长度
 	if len(iv) != blockSize {
-		return "", fmt.Errorf("IV 长度必须为 %d 字节", blockSize)
+		err := fmt.Errorf("IV 长度必须为 %d 字节", blockSize)
+		return "", err
 	}
 
 	// 1. 进行填充
@@ -53,7 +56,9 @@ func EncryptCBC(plaintext string, key []byte, iv []byte) (string, error) {
 	mode.CryptBlocks(ciphertext, content)
 
 	// 使用 URL 安全编码返回
-	return base64.URLEncoding.EncodeToString(ciphertext), nil
+	encoded := base64.URLEncoding.EncodeToString(ciphertext)
+
+	return encoded, nil
 }
 
 // DecryptCBC AES-CBC 解密 (显式传入 IV)
@@ -70,7 +75,8 @@ func DecryptCBC(cryptoText string, key []byte, iv []byte) (string, error) {
 
 	blockSize := block.BlockSize()
 	if len(iv) != blockSize {
-		return "", fmt.Errorf("IV 长度必须为 %d 字节", blockSize)
+		err := fmt.Errorf("IV 长度必须为 %d 字节", blockSize)
+		return "", err
 	}
 
 	// 1. 直接解密整个数据 (因为 IV 是外部传入的，密文里不再包含 IV)

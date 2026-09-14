@@ -17,7 +17,8 @@ var oConsumerCommand = &cobra.Command{
 
 		oConsumerRouter := register.ConsumerInit(oContainer)
 
-		if err := oConsumerRouter.Serve(context.Background()); err != nil {
+		oContext := context.Background()
+		if err := oConsumerRouter.Serve(oContext); err != nil {
 			log.Printf("consumer stopped: %v", err)
 		}
 

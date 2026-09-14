@@ -17,5 +17,9 @@ func NewClient() (*grpc.ClientConn, error) {
 	}
 	sAddr := fmt.Sprintf("%s:%s", sHost, sPort)
 
-	return grpc.NewClient(sAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	oCredentials := insecure.NewCredentials()
+	oTransportCredentials := grpc.WithTransportCredentials(oCredentials)
+	oConnection, oErr := grpc.NewClient(sAddr, oTransportCredentials)
+
+	return oConnection, oErr
 }

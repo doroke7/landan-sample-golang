@@ -20,7 +20,8 @@ func main() {
 	g.Go(func() error {
 		select {
 		case <-ctx.Done(): // 執行前或執行中先檢查有沒有隊友卡死或爆炸
-			return ctx.Err()
+			err := ctx.Err()
+			return err
 		case <-time.After(500 * time.Millisecond): // 模擬耗時 500ms
 			fmt.Println("👤 [用戶服務] 資料抓取成功！")
 			return nil
@@ -31,7 +32,8 @@ func main() {
 	g.Go(func() error {
 		select {
 		case <-ctx.Done():
-			return ctx.Err()
+			err := ctx.Err()
+			return err
 		case <-time.After(600 * time.Millisecond): // 模擬耗時 600ms
 			fmt.Println("📦 [訂單服務] 資料抓取成功！")
 			return nil
@@ -42,10 +44,12 @@ func main() {
 	g.Go(func() error {
 		select {
 		case <-ctx.Done():
-			return ctx.Err()
+			err := ctx.Err()
+			return err
 		case <-time.After(200 * time.Millisecond): // 只要 200ms 就率先爆炸
 			fmt.Println("❌ [優惠券服務] 伺服器連線中斷！")
-			return errors.New("Coupon Service 404 Error")
+			err := errors.New("Coupon Service 404 Error")
+			return err
 		}
 	})
 

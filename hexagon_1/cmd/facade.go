@@ -22,7 +22,8 @@ var oFacadeCommand = &cobra.Command{
 			log.Fatal(err)
 		}
 
-		log.Fatal(oFacadeServer.Serve(oListener))
+		oErr := oFacadeServer.Serve(oListener)
+		log.Fatal(oErr)
 	},
 }
 

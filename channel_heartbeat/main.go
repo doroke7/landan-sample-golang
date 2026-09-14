@@ -28,7 +28,8 @@ func worker(ctx context.Context, heartbeat chan<- struct{}) {
 
 func main() {
 
-	ctx, cancel := context.WithCancel(context.Background())
+	oBackgroundContext := context.Background()
+	ctx, cancel := context.WithCancel(oBackgroundContext)
 	defer cancel()
 
 	heartbeat := make(chan struct{})

@@ -44,12 +44,15 @@ func main() {
 
 		// 2. 隨便你寫複雜的 Go 業務邏輯判斷
 		if balanceA < 100 {
-			return fmt.Errorf("A 餘額不足，阻止交易") // 回傳 error，STM 就會直接取消，不對 etcd 產生副作用
+			err := fmt.Errorf("A 餘額不足，阻止交易") // 回傳 error，STM 就會直接取消，不對 etcd 產生副作用
+			return err
 		}
 
 		// 3. 【Write】計算完直接 Put。這時資料只在內存緩衝區（Write Set）
-		stm.Put(accA, strconv.Itoa(balanceA-100))
-		stm.Put(accB, strconv.Itoa(balanceB+100))
+		sBalanceA := strconv.Itoa(balanceA - 100)
+		sBalanceB := strconv.Itoa(balanceB + 100)
+		stm.Put(accA, sBalanceA)
+		stm.Put(accB, sBalanceB)
 
 		return nil
 		// 🚪 函式結束，STM 會自動把剛才盯緊的版本號拼裝成一個底層 Txn 送給 etcd。

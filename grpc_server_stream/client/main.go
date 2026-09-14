@@ -11,7 +11,10 @@ import (
 )
 
 func main() {
-	conn, err := grpc.Dial("localhost:8080", grpc.WithTransportCredentials(insecure.NewCredentials()))
+	transportCredentials := insecure.NewCredentials()
+	transportCredentialsOption := grpc.WithTransportCredentials(transportCredentials)
+
+	conn, err := grpc.Dial("localhost:8080", transportCredentialsOption)
 	if err != nil {
 		log.Fatalf("連線失敗: %v", err)
 	}
@@ -20,7 +23,8 @@ func main() {
 	client := protobuf.NewMonitorClient(conn)
 
 	// 1. 調用方法獲取 stream 對象
-	stream, err := client.PushData(context.Background())
+	backgroundContext := context.Background()
+	stream, err := client.PushData(backgroundContext)
 	if err != nil {
 		log.Fatalf("開啟串流失敗: %v", err)
 	}

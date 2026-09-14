@@ -25,7 +25,9 @@ func (r *UserRepository) AddOne(user *domain.User) error {
 func (r *UserRepository) ShowOneById(id int) (*domain.User, error) {
 	user, ok := r.data[id]
 	if !ok {
-		return nil, errors.New("not found")
+		oError := errors.New("not found")
+
+		return nil, oError
 	}
 	return user, nil
 }

@@ -18,10 +18,12 @@ func NewMongo() (*mongo.Client, error) {
 		CONFIG.MONGODB.NAME,
 	)
 
-	oOptions := options.Client().
-		ApplyURI(sURI).
-		SetMaxPoolSize(CONFIG.MONGODB.MAX_POOL_SIZE).
-		SetMinPoolSize(CONFIG.MONGODB.MIN_POOL_SIZE)
+	oOptions := options.Client()
+	oOptions = oOptions.ApplyURI(sURI)
+	oOptions = oOptions.SetMaxPoolSize(CONFIG.MONGODB.MAX_POOL_SIZE)
+	oOptions = oOptions.SetMinPoolSize(CONFIG.MONGODB.MIN_POOL_SIZE)
 
-	return mongo.Connect(oOptions)
+	oClient, oErr := mongo.Connect(oOptions)
+
+	return oClient, oErr
 }

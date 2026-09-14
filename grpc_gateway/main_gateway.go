@@ -14,7 +14,8 @@ func main() {
 	mux := runtime.NewServeMux()
 
 	// 設定轉接到核心的連線資訊
-	opts := []grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())}
+	transportCredentials := insecure.NewCredentials()
+	opts := []grpc.DialOption{grpc.WithTransportCredentials(transportCredentials)}
 
 	// 將產生的適配代碼註冊到 mux
 	_ = pb.RegisterTranslatorHandlerFromEndpoint(ctx, mux, "localhost:50051", opts)

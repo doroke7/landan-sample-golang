@@ -104,5 +104,7 @@ func decodeFrame(oReader io.Reader, oPayload any) error {
 		return err
 	}
 
-	return json.Unmarshal(aBody, oPayload)
+	oErr := json.Unmarshal(aBody, oPayload)
+
+	return oErr
 }

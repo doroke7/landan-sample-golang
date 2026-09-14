@@ -24,7 +24,8 @@ func Add1Middleware(next Handler) Handler {
 
 		value = value + 1
 
-		return next(value)
+		result := next(value)
+		return result
 	}
 }
 
@@ -34,7 +35,8 @@ func Multiple2Middleware(next Handler) Handler {
 
 		value = value * 2
 
-		return next(value)
+		result := next(value)
+		return result
 	}
 }
 
@@ -44,7 +46,8 @@ func Sub2Middleware(next Handler) Handler {
 
 		value = value - 2
 
-		return next(value)
+		result := next(value)
+		return result
 	}
 }
 
@@ -54,7 +57,8 @@ func Multiple4Middleware(next Handler) Handler {
 
 		value = value * 4
 
-		return next(value)
+		result := next(value)
+		return result
 	}
 }
 
@@ -65,17 +69,23 @@ func main() {
 		return value
 	}
 
-	result := Chain(fnHandler1, Add1Middleware, Multiple2Middleware, Sub2Middleware, Multiple4Middleware)(10)
+	fnChained := Chain(fnHandler1, Add1Middleware, Multiple2Middleware, Sub2Middleware, Multiple4Middleware)
+	result := fnChained(10)
 
 	fmt.Println(result)
 
 	// 中間件有點麻煩。從右邊往左生成 操作函數（組裝是 右邊到左）
 	// 從左往右依次呼叫操作函數 （執行是 左邊到右）
-	nestedResult3 := Add1Middleware(Multiple2Middleware(Sub2Middleware(fnHandler1)))(10)
+	fnHandler2 := Sub2Middleware(fnHandler1)
+	fnHandler3 := Multiple2Middleware(fnHandler2)
+	fnHandler4 := Add1Middleware(fnHandler3)
+	nestedResult3 := fnHandler4(10)
 
 	fmt.Println(nestedResult3)
 
-	nestedResult2 := Add1Middleware(Multiple2Middleware(fnHandler1))(1)
+	fnHandler5 := Multiple2Middleware(fnHandler1)
+	fnHandler6 := Add1Middleware(fnHandler5)
+	nestedResult2 := fnHandler6(1)
 	fmt.Println(nestedResult2)
 
 }

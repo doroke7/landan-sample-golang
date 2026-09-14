@@ -16,28 +16,37 @@ import (
 
 func main() {
 	// 為了能快速看到「風暴」，我們把時間縮短：2秒送一次心跳，1秒沒回就判定超時
+	transportCredentials := insecure.NewCredentials()
+	transportCredentialsOption := grpc.WithTransportCredentials(transportCredentials)
+
+	connectParams := grpc.ConnectParams{
+		Backoff: backoff.Config{
+			BaseDelay:  1.0 * time.Second, // 第一次斷線後，等 1.0 秒再嘗試重連
+			Multiplier: 1.6,               // 每次重連失敗，等待時間乘以 1.6 (1s -> 1.6s -> 2.56s)
+			Jitter:     0.2,               // 加上 20% 的隨機抖動誤差，把大量 Client 的重連時間錯開
+			MaxDelay:   10 * time.Second,  // 不管失敗幾次，最長只等 30 秒，避免時間被無限拉長
+		},
+		MinConnectTimeout: 3 * time.Second, // 每次嘗試建立 TCP 握手時，最少給底層 3 秒的超時時間
+	}
+	connectParamsOption := grpc.WithConnectParams(connectParams)
+
+	keepaliveClientParams := keepalive.ClientParameters{
+		Time:                10 * time.Second, // 每 10 秒偷偷送一次 PING 保活、防止被防火牆剪斷
+		Timeout:             3 * time.Second,  // PING 出去後 3 秒內 Server 沒回應，直接判定斷線，立刻觸發上面的 Backoff 流程
+		PermitWithoutStream: true,             // 關鍵：就算現在業務沒請求、沒有 Stream，也要送 PING
+	}
+	keepaliveParamsOption := grpc.WithKeepaliveParams(keepaliveClientParams)
+
+	/*
+		重連必須要要 client 端主動發起 業務連接的時候的瞬間嗎，如果業務都沒有新請求就會持續idle
+
+
+	*/
 	conn, err := grpc.NewClient(
 		"127.0.0.1:50051",
-		grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithConnectParams(grpc.ConnectParams{
-			Backoff: backoff.Config{
-				BaseDelay:  1.0 * time.Second, // 第一次斷線後，等 1.0 秒再嘗試重連
-				Multiplier: 1.6,               // 每次重連失敗，等待時間乘以 1.6 (1s -> 1.6s -> 2.56s)
-				Jitter:     0.2,               // 加上 20% 的隨機抖動誤差，把大量 Client 的重連時間錯開
-				MaxDelay:   10 * time.Second,  // 不管失敗幾次，最長只等 30 秒，避免時間被無限拉長
-			},
-			MinConnectTimeout: 3 * time.Second, // 每次嘗試建立 TCP 握手時，最少給底層 3 秒的超時時間
-		}),
-		grpc.WithKeepaliveParams(keepalive.ClientParameters{
-			Time:                10 * time.Second, // 每 10 秒偷偷送一次 PING 保活、防止被防火牆剪斷
-			Timeout:             3 * time.Second,  // PING 出去後 3 秒內 Server 沒回應，直接判定斷線，立刻觸發上面的 Backoff 流程
-			PermitWithoutStream: true,             // 關鍵：就算現在業務沒請求、沒有 Stream，也要送 PING
-		}),
-		/*
-			重連必須要要 client 端主動發起 業務連接的時候的瞬間嗎，如果業務都沒有新請求就會持續idle
-
-
-		*/
+		transportCredentialsOption,
+		connectParamsOption,
+		keepaliveParamsOption,
 	)
 	if err != nil {
 		panic(err)
@@ -52,17 +61,25 @@ func main() {
 	// 關鍵動作 2：應用層心跳，2 秒送一次 Ping，1 秒沒回就判定超時
 	go func() {
 		for {
-			ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
-			resp, err := client.Ping(ctx, &pb.PingRequest{
+			backgroundContext := context.Background()
+			ctx, cancel := context.WithTimeout(backgroundContext, 1*time.Second)
+
+			now := time.Now()
+			pingRequest := &pb.PingRequest{
 				ClientId:  "client-1",
-				Timestamp: time.Now().Unix(),
-			})
+				Timestamp: now.Unix(),
+			}
+			resp, err := client.Ping(ctx, pingRequest)
 			cancel()
 
 			if err != nil {
-				fmt.Printf("[%s] 心跳失敗: %v\n", time.Now().Format("15:04:05"), err)
+				failureTime := time.Now()
+				failureTimeText := failureTime.Format("15:04:05")
+				fmt.Printf("[%s] 心跳失敗: %v\n", failureTimeText, err)
 			} else {
-				fmt.Printf("[%s] 心跳成功: status=%s server_time=%d\n", time.Now().Format("15:04:05"), resp.Status, resp.ServerTime)
+				successTime := time.Now()
+				successTimeText := successTime.Format("15:04:05")
+				fmt.Printf("[%s] 心跳成功: status=%s server_time=%d\n", successTimeText, resp.Status, resp.ServerTime)
 			}
 
 			time.Sleep(2 * time.Second)
@@ -73,7 +90,9 @@ func main() {
 	go func() {
 		for {
 			state := conn.GetState()
-			fmt.Printf("[%s] 當前連線狀態: %s\n", time.Now().Format("15:04:05"), state)
+			checkTime := time.Now()
+			checkTimeText := checkTime.Format("15:04:05")
+			fmt.Printf("[%s] 當前連線狀態: %s\n", checkTimeText, state)
 
 			// 如果不小心掉回 IDLE，就再逼它連線
 			if state == connectivity.Idle {

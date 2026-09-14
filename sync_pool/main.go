@@ -16,7 +16,8 @@ func (c *Client) Do(msg string) {
 	c.seq++
 
 	c.buf.Reset()
-	c.buf.WriteString(fmt.Sprintf("[%d] %s", c.seq, msg))
+	sMessage := fmt.Sprintf("[%d] %s", c.seq, msg)
+	c.buf.WriteString(sMessage)
 
 	// 模擬 IO
 	time.Sleep(10 * time.Millisecond)
@@ -45,7 +46,8 @@ func main() {
 			client := pool.Get().(*Client)
 			defer pool.Put(client)
 
-			client.Do(fmt.Sprintf("request-%d", id))
+			sRequest := fmt.Sprintf("request-%d", id)
+			client.Do(sRequest)
 
 		}(i)
 	}

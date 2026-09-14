@@ -17,7 +17,8 @@ var oWebsocketCommand = &cobra.Command{
 			log.Fatal(err)
 		}
 		oWebsocketServer := register.WebsocketInit(oContainer)
-		log.Fatal(oWebsocketServer.ListenAndServe())
+		oErr := oWebsocketServer.ListenAndServe()
+		log.Fatal(oErr)
 	},
 }
 

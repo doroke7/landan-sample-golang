@@ -24,9 +24,14 @@ func NewMysql() (*gorm.DB, error) {
 		sMysqlUser, sMysqlPass, sMysqlHost, sMysqlPort, sMysqlDbName,
 	)
 
-	return gorm.Open(mysql.Open(sDSN), &gorm.Config{
-		NamingStrategy: schema.NamingStrategy{
-			TablePrefix: sTablePrefix,
-		},
-	})
+	oMysqlDialector := mysql.Open(sDSN)
+	oNamingStrategy := schema.NamingStrategy{
+		TablePrefix: sTablePrefix,
+	}
+	oConfig := &gorm.Config{
+		NamingStrategy: oNamingStrategy,
+	}
+	oDB, oErr := gorm.Open(oMysqlDialector, oConfig)
+
+	return oDB, oErr
 }

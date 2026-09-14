@@ -17,7 +17,8 @@ func NewMysql(dsn string) (*sql.DB, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err := db.Ping(); err != nil {
+	err = db.Ping()
+	if err != nil {
 		return nil, err
 	}
 	return db, nil

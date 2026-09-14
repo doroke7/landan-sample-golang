@@ -12,7 +12,10 @@ import (
 
 func main() {
 	// 建立連線
-	oConnection, err := grpc.Dial("localhost:50051", grpc.WithTransportCredentials(insecure.NewCredentials()))
+	oTransportCredentials := insecure.NewCredentials()
+	oTransportCredentialsOption := grpc.WithTransportCredentials(oTransportCredentials)
+
+	oConnection, err := grpc.Dial("localhost:50051", oTransportCredentialsOption)
 	if err != nil {
 		log.Fatalf("無法連線: %v", err)
 	}
@@ -21,12 +24,15 @@ func main() {
 	oClient := pb.NewGreeterClient(oConnection)
 
 	// 呼叫服務
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	oBackgroundContext := context.Background()
+	ctx, cancel := context.WithTimeout(oBackgroundContext, time.Second)
 	defer cancel()
 
-	oResponse, err := oClient.SayHello(ctx, &pb.HelloRequest{Name: "Gemini"})
+	oHelloRequest := &pb.HelloRequest{Name: "Gemini"}
+	oResponse, err := oClient.SayHello(ctx, oHelloRequest)
 	if err != nil {
 		log.Fatalf("呼叫失敗: %v", err)
 	}
-	log.Printf("伺服器回傳: %s", oResponse.GetMessage())
+	sMessage := oResponse.GetMessage()
+	log.Printf("伺服器回傳: %s", sMessage)
 }

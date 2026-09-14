@@ -24,13 +24,17 @@ func main() {
 	}
 
 	go func() {
-		if err := oContainer.ConsumerUserHandler.Start(context.Background()); err != nil {
+		oContext := context.Background()
+		err := oContainer.ConsumerUserHandler.Start(oContext)
+		if err != nil {
 			log.Printf("consumer stopped: %v", err)
 		}
 	}()
 
 	go func() {
-		if err := oContainer.ClientUserHandler.Start(context.Background()); err != nil {
+		oContext := context.Background()
+		err := oContainer.ClientUserHandler.Start(oContext)
+		if err != nil {
 			log.Printf("user stream client stopped: %v", err)
 		}
 	}()
@@ -44,11 +48,13 @@ func main() {
 	}
 
 	go func() {
-		log.Fatal(oGrpcServer.Serve(oListener))
+		err := oGrpcServer.Serve(oListener)
+		log.Fatal(err)
 	}()
 
 	http.HandleFunc("/user/create", oContainer.HttpUserHandler.CreateUser)
 	http.HandleFunc("/user/get", oContainer.HttpUserHandler.GetUser)
 
-	log.Fatal(http.ListenAndServe(":8080", nil))
+	err = http.ListenAndServe(":8080", nil)
+	log.Fatal(err)
 }

@@ -20,16 +20,22 @@ type MonitorService struct {
 func (s *MonitorService) WatchMetrics(req *protobuf.MonitorRequest, stream protobuf.MonitorService_WatchMetricsServer) error {
 	resource := req.GetResourceName()
 	if resource == "" {
-		return status.Error(codes.InvalidArgument, "resource_name is required")
+		err := status.Error(codes.InvalidArgument, "resource_name is required")
+
+		return err
 	}
 
 	log.Printf("Starting monitor for: %s", resource)
 
 	for {
+		streamContext := stream.Context()
+
 		select {
-		case <-stream.Context().Done():
+		case <-streamContext.Done():
 			log.Printf("Monitor stopped for: %s", resource)
-			return stream.Context().Err()
+			err := streamContext.Err()
+
+			return err
 		default:
 			res := &protobuf.MetricResponse{
 				Value:     rand.Float32() * 100,

@@ -16,7 +16,8 @@ func Chain(fnHandler Handler, aMiddlewares ...Middleware) Handler {
 		fnMiddleware := aMiddlewares[iIndex]
 		fnNext := fnHandler
 		fnHandler = func(value int) int {
-			return fnMiddleware(value, fnNext)
+			result := fnMiddleware(value, fnNext)
+			return result
 		}
 	}
 	return fnHandler
@@ -26,28 +27,32 @@ func Add1Middleware(value int, next Handler) int {
 
 	value = value + 1
 
-	return next(value)
+	result := next(value)
+	return result
 }
 
 func Multiple2Middleware(value int, next Handler) int {
 
 	value = value * 2
 
-	return next(value)
+	result := next(value)
+	return result
 }
 
 func Sub2Middleware(value int, next Handler) int {
 
 	value = value - 2
 
-	return next(value)
+	result := next(value)
+	return result
 }
 
 func Multiple4Middleware(value int, next Handler) int {
 
 	value = value * 4
 
-	return next(value)
+	result := next(value)
+	return result
 }
 
 func main() {
@@ -66,16 +71,20 @@ func main() {
 	// 不用 Chain，手動一層層包：Chain 做的事情就是這個 for 迴圈，
 	// 這裡展開來寫，效果跟上面 Chain(...) 完全一樣。
 	fnManualHandler4 := func(value int) int {
-		return Multiple4Middleware(value, fnHandler1)
+		result := Multiple4Middleware(value, fnHandler1)
+		return result
 	}
 	fnManualHandler3 := func(value int) int {
-		return Sub2Middleware(value, fnManualHandler4)
+		result := Sub2Middleware(value, fnManualHandler4)
+		return result
 	}
 	fnManualHandler2 := func(value int) int {
-		return Multiple2Middleware(value, fnManualHandler3)
+		result := Multiple2Middleware(value, fnManualHandler3)
+		return result
 	}
 	fnManualHandler1 := func(value int) int {
-		return Add1Middleware(value, fnManualHandler2)
+		result := Add1Middleware(value, fnManualHandler2)
+		return result
 	}
 
 	manualResult := fnManualHandler1(10)
@@ -83,17 +92,21 @@ func main() {
 	fmt.Println(manualResult)
 
 	nestedResult := Add1Middleware(10, func(value int) int {
-		return Multiple2Middleware(value, func(value int) int {
-			return Sub2Middleware(value, func(value int) int {
-				return Multiple4Middleware(value, fnHandler1)
+		resultA := Multiple2Middleware(value, func(value int) int {
+			resultB := Sub2Middleware(value, func(value int) int {
+				resultC := Multiple4Middleware(value, fnHandler1)
+				return resultC
 			})
+			return resultB
 		})
+		return resultA
 	})
 
 	fmt.Println(nestedResult)
 
 	nestedResult2 := Add1Middleware(10, func(value int) int {
-		return Multiple2Middleware(value, fnHandler1)
+		result := Multiple2Middleware(value, fnHandler1)
+		return result
 	})
 
 	fmt.Println(nestedResult2)

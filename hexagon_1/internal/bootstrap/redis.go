@@ -10,15 +10,19 @@ import (
 func NewRedis() (*redis.Client, error) {
 	sAddr := fmt.Sprintf("%s:%s", CONFIG.REDIS.HOST, CONFIG.REDIS.PORT)
 
-	oClient := redis.NewClient(&redis.Options{
+	oOptions := &redis.Options{
 		Addr:     sAddr,
 		Username: CONFIG.REDIS.USERNAME,
 		Password: CONFIG.REDIS.PASSWORD,
 		DB:       CONFIG.REDIS.DB,
-	})
+	}
+	oClient := redis.NewClient(oOptions)
 
-	if err := oClient.Ping(context.Background()).Err(); err != nil {
-		return nil, err
+	oContext := context.Background()
+	oPingResult := oClient.Ping(oContext)
+	oErr := oPingResult.Err()
+	if oErr != nil {
+		return nil, oErr
 	}
 
 	return oClient, nil

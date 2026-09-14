@@ -25,9 +25,12 @@ func (s *MonitorService) PushData(stream protobuf.Monitor_PushDataServer) error 
 		// 判斷是否傳輸結束
 		if err == io.EOF {
 			log.Printf("✅ [Service] 接收完成，總計處理 %d 筆數據", count)
-			return stream.SendAndClose(&protobuf.DataResponse{
+			dataResponse := &protobuf.DataResponse{
 				Count: count,
-			})
+			}
+			sendErr := stream.SendAndClose(dataResponse)
+
+			return sendErr
 		}
 		if err != nil {
 			log.Printf("❌ [Service] 串流接收異常: %v", err)

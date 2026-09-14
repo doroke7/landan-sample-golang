@@ -64,10 +64,13 @@ func main() {
 
 			limiter.Limit()
 
+			oNow := time.Now()
+			sTime := oNow.Format("15:04:05")
+
 			fmt.Println(
 				"request",
 				id,
-				time.Now().Format("15:04:05"),
+				sTime,
 			)
 
 		}(i)

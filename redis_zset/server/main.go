@@ -44,12 +44,15 @@ func main() {
 // 同一筆任務理論上可能重複拿到；正式場景通常會包一段 Lua script（GET 完立刻用同一次
 // 呼叫 REM）來保證原子性，這裡為了範例單純用兩步驟示範概念就好。
 func consumeDueTasks(ctx context.Context, rdb *redis.Client) {
-	sNow := fmt.Sprintf("%d", time.Now().Unix())
+	oNow := time.Now()
+	iNow := oNow.Unix()
+	sNow := fmt.Sprintf("%d", iNow)
 
-	aMembers, err := rdb.ZRangeByScore(ctx, zsetKey, &redis.ZRangeBy{
+	oRangeCmd := rdb.ZRangeByScore(ctx, zsetKey, &redis.ZRangeBy{
 		Min: "-inf",
 		Max: sNow,
-	}).Result()
+	})
+	aMembers, err := oRangeCmd.Result()
 	if err != nil {
 		fmt.Printf("⚠️ 撈取到期任務失敗: %v\n", err)
 		return
@@ -57,7 +60,9 @@ func consumeDueTasks(ctx context.Context, rdb *redis.Client) {
 
 	for _, sMember := range aMembers {
 		// 拿到就先移除，避免下一輪輪詢又撈到同一筆
-		if err := rdb.ZRem(ctx, zsetKey, sMember).Err(); err != nil {
+		oRemCmd := rdb.ZRem(ctx, zsetKey, sMember)
+		err := oRemCmd.Err()
+		if err != nil {
 			fmt.Printf("⚠️ 移除任務失敗: %v\n", err)
 			continue
 		}

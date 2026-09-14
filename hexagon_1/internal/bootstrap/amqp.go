@@ -15,5 +15,7 @@ func NewAmqp() (*amqp.Connection, error) {
 		CONFIG.AMQP.PORT,
 	)
 
-	return amqp.Dial(sDSN)
+	oConnection, oErr := amqp.Dial(sDSN)
+
+	return oConnection, oErr
 }

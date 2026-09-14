@@ -27,9 +27,13 @@ func main() {
 
 	for i, oDelay := range aDelays {
 		sMember := fmt.Sprintf(`{"order_id": %d}`, i+1)
-		fReadyAt := float64(time.Now().Add(oDelay).Unix())
+		oReadyTime := time.Now().Add(oDelay)
+		iReadyAt := oReadyTime.Unix()
+		fReadyAt := float64(iReadyAt)
 
-		if err := rdb.ZAdd(ctx, zsetKey, redis.Z{Score: fReadyAt, Member: sMember}).Err(); err != nil {
+		oResult := rdb.ZAdd(ctx, zsetKey, redis.Z{Score: fReadyAt, Member: sMember})
+		err := oResult.Err()
+		if err != nil {
 			fmt.Printf("⚠️ 排入失敗: %v\n", err)
 			continue
 		}

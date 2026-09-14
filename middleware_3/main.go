@@ -24,7 +24,8 @@ func Add1Middleware(next Handler) Handler {
 
 		value = value + 1
 
-		return next(value)
+		result := next(value)
+		return result
 	}
 }
 
@@ -34,7 +35,8 @@ func Multiple2Middleware(next Handler) Handler {
 
 		value = value * 2
 
-		return next(value)
+		result := next(value)
+		return result
 	}
 }
 
@@ -44,7 +46,8 @@ func Sub2Middleware(next Handler) Handler {
 
 		value = value - 2
 
-		return next(value)
+		result := next(value)
+		return result
 	}
 }
 
@@ -54,7 +57,8 @@ func Multiple4Middleware(next Handler) Handler {
 
 		value = value * 4
 
-		return next(value)
+		result := next(value)
+		return result
 	}
 }
 
@@ -65,14 +69,18 @@ func main() {
 		return value
 	}
 
-	result := Chain(fnHandler1, Add1Middleware, Multiple2Middleware, Sub2Middleware, Multiple4Middleware)(10)
+	fnChained := Chain(fnHandler1, Add1Middleware, Multiple2Middleware, Sub2Middleware, Multiple4Middleware)
+	result := fnChained(10)
 
 	fmt.Println(result)
 
 	// 巢狀呼叫組合：每個 XxxMiddleware(next) 回傳的還是一個 Handler，
 	// 所以可以直接把上一層的回傳值當下一層的參數，一路巢狀包到最外層 Add1Middleware。
 	// 組合完只拿到一個 Handler，還沒真正執行，最後那個 (10) 才是把值帶進去、觸發整條鏈。
-	nestedResult2 := Add1Middleware(Multiple2Middleware(Sub2Middleware(fnHandler1)))(10)
+	fnHandler2 := Sub2Middleware(fnHandler1)
+	fnHandler3 := Multiple2Middleware(fnHandler2)
+	fnHandler4 := Add1Middleware(fnHandler3)
+	nestedResult2 := fnHandler4(10)
 
 	fmt.Println(nestedResult2)
 

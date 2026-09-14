@@ -42,18 +42,22 @@ func (oSelf *AdminUserLogic) AddAminUser1(oValue *domain.AdminUserValue) error {
 	}
 	if oResult.RowsAffected == 0 {
 		oTx.Rollback()
-		return errors.New("新增0筆")
+		oErr := errors.New("新增0筆")
+
+		return oErr
 	}
 
 	var iAdminUserId uint64
-	if oErr := oTx.Raw("SELECT LAST_INSERT_ID()").Scan(&iAdminUserId).Error; oErr != nil {
+	oResult = oTx.Raw("SELECT LAST_INSERT_ID()").Scan(&iAdminUserId)
+	if oResult.Error != nil {
 		oTx.Rollback()
-		return oErr
+		return oResult.Error
 	}
 
-	if oErr := oTx.Where("admin_user_id = ?", iAdminUserId).Delete(&domain.AdminUsersToAdminRole{}).Error; oErr != nil {
+	oResult = oTx.Where("admin_user_id = ?", iAdminUserId).Delete(&domain.AdminUsersToAdminRole{})
+	if oResult.Error != nil {
 		oTx.Rollback()
-		return oErr
+		return oResult.Error
 	}
 
 	if len(oValue.AdminRoleIds) > 0 {
@@ -65,13 +69,16 @@ func (oSelf *AdminUserLogic) AddAminUser1(oValue *domain.AdminUserValue) error {
 			})
 		}
 
-		if oErr := oTx.Create(&aRelations).Error; oErr != nil {
+		oResult = oTx.Create(&aRelations)
+		if oResult.Error != nil {
 			oTx.Rollback()
-			return oErr
+			return oResult.Error
 		}
 	}
 
-	return oTx.Commit().Error
+	oResult = oTx.Commit()
+
+	return oResult.Error
 }
 
 // AddAminUser2 跟 AddAminUser1 做一樣的事，但改用 gorm 的 Transaction(func(tx *gorm.DB) error {...})

@@ -45,7 +45,9 @@ func main() {
 		wg.Add(1)
 		go func(id int) {
 			defer wg.Done()
-			time.Sleep(time.Duration(rand.Intn(800)) * time.Millisecond)
+			iRandomMillis := rand.Intn(800)
+			oSleepDuration := time.Duration(iRandomMillis) * time.Millisecond
+			time.Sleep(oSleepDuration)
 
 			// 生產者原子操作：【檢查是否有空位 + 輸入/坐下】
 			_ = mutex.Acquire(ctx, 1)

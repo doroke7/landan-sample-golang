@@ -88,7 +88,8 @@ func (oSelf *AesHelper) Decrypt(sText string, sKey string, sIv string) string {
 
 func (oSelf *AesHelper) pKCS7Padding(ciphertext []byte) []byte {
 	padding := aes.BlockSize - len(ciphertext)%aes.BlockSize
-	padtext := bytes.Repeat([]byte{byte(padding)}, padding)
+	byPadding := []byte{byte(padding)}
+	padtext := bytes.Repeat(byPadding, padding)
 	return append(ciphertext, padtext...)
 }
 

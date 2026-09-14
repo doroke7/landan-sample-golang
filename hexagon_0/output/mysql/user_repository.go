@@ -29,9 +29,12 @@ func (r *UserRepository) ShowOneById(id int) (*domain.User, error) {
 	row := r.db.QueryRow(`SELECT id, name FROM users WHERE id = ?`, id)
 
 	var user domain.User
-	if err := row.Scan(&user.ID, &user.Name); err != nil {
+	err := row.Scan(&user.ID, &user.Name)
+	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return nil, errors.New("not found")
+			oError := errors.New("not found")
+
+			return nil, oError
 		}
 		return nil, err
 	}

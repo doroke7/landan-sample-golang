@@ -21,18 +21,24 @@ type BiMultiMap[L, R Hashable] struct {
 }
 
 func NewBiMultiMap[L, R Hashable]() *BiMultiMap[L, R] {
-	return &BiMultiMap[L, R]{
-		leftToRights: hashmap.New[L, *hashmap.Map[R, struct{}]](),
-		rightToLefts: hashmap.New[R, *hashmap.Map[L, struct{}]](),
+	oLeftToRights := hashmap.New[L, *hashmap.Map[R, struct{}]]()
+	oRightToLefts := hashmap.New[R, *hashmap.Map[L, struct{}]]()
+	oBiMultiMap := &BiMultiMap[L, R]{
+		leftToRights: oLeftToRights,
+		rightToLefts: oRightToLefts,
 	}
+
+	return oBiMultiMap
 }
 
 // Insert 建立 oLeft/oRight 的雙向關聯，重複呼叫同一組 oLeft/oRight 不會有副作用。
 func (oSelf *BiMultiMap[L, R]) Insert(oLeft L, oRight R) {
-	oRights, _ := oSelf.leftToRights.GetOrInsert(oLeft, hashmap.New[R, struct{}]())
+	oNewRightsSet := hashmap.New[R, struct{}]()
+	oRights, _ := oSelf.leftToRights.GetOrInsert(oLeft, oNewRightsSet)
 	oRights.Set(oRight, struct{}{})
 
-	oLefts, _ := oSelf.rightToLefts.GetOrInsert(oRight, hashmap.New[L, struct{}]())
+	oNewLeftsSet := hashmap.New[L, struct{}]()
+	oLefts, _ := oSelf.rightToLefts.GetOrInsert(oRight, oNewLeftsSet)
 	oLefts.Set(oLeft, struct{}{})
 }
 
@@ -43,7 +49,8 @@ func (oSelf *BiMultiMap[L, R]) Left(oLeft L) []R {
 		return nil
 	}
 
-	aResult := make([]R, 0, oRights.Len())
+	iRightsLen := oRights.Len()
+	aResult := make([]R, 0, iRightsLen)
 	oRights.Range(func(oRight R, _ struct{}) bool {
 		aResult = append(aResult, oRight)
 		return true
@@ -59,7 +66,8 @@ func (oSelf *BiMultiMap[L, R]) Right(oRight R) []L {
 		return nil
 	}
 
-	aResult := make([]L, 0, oLefts.Len())
+	iLeftsLen := oLefts.Len()
+	aResult := make([]L, 0, iLeftsLen)
 	oLefts.Range(func(oLeft L, _ struct{}) bool {
 		aResult = append(aResult, oLeft)
 		return true
@@ -136,14 +144,22 @@ func main() {
 	oBimultimap.Insert("conn-1", "#general") // 重複 Insert 同一組沒有副作用
 
 	// Left：某條連線訂了哪些頻道。
-	fmt.Println("conn-1 訂閱的頻道:", sorted(oBimultimap.Left("conn-1")))
+	aConn1Channels := oBimultimap.Left("conn-1")
+	aSortedConn1Channels := sorted(aConn1Channels)
+	fmt.Println("conn-1 訂閱的頻道:", aSortedConn1Channels)
 
 	// Right：某個頻道裡有哪些連線（推播就是查這個方向）。
-	fmt.Println("#general 的訂閱者:", sorted(oBimultimap.Right("#general")))
-	fmt.Println("#random 的訂閱者:", sorted(oBimultimap.Right("#random")))
+	aGeneralSubscribers := oBimultimap.Right("#general")
+	aSortedGeneralSubscribers := sorted(aGeneralSubscribers)
+	fmt.Println("#general 的訂閱者:", aSortedGeneralSubscribers)
+
+	aRandomSubscribers := oBimultimap.Right("#random")
+	aSortedRandomSubscribers := sorted(aRandomSubscribers)
+	fmt.Println("#random 的訂閱者:", aSortedRandomSubscribers)
 
 	// 查不存在的 key 回傳 nil（可以直接 range）。
-	fmt.Println("查不存在的 key:", oBimultimap.Left("conn-404") == nil)
+	aMissingKeyChannels := oBimultimap.Left("conn-404")
+	fmt.Println("查不存在的 key:", aMissingKeyChannels == nil)
 }
 
 // demoRemove：三種拆關聯的方式。
@@ -158,17 +174,29 @@ func demoRemove() {
 
 	// Remove：只拆單一一組 oLeft/oRight，其他不動。
 	oBimultimap.Remove("conn-1", "#random")
-	fmt.Println("Remove(conn-1, #random) 後，conn-1 的頻道:", sorted(oBimultimap.Left("conn-1")))
-	fmt.Println("Remove(conn-1, #random) 後，#random 的訂閱者:", sorted(oBimultimap.Right("#random")))
+	aConn1ChannelsAfterRemove := oBimultimap.Left("conn-1")
+	aSortedConn1ChannelsAfterRemove := sorted(aConn1ChannelsAfterRemove)
+	fmt.Println("Remove(conn-1, #random) 後，conn-1 的頻道:", aSortedConn1ChannelsAfterRemove)
+
+	aRandomSubscribersAfterRemove := oBimultimap.Right("#random")
+	aSortedRandomSubscribersAfterRemove := sorted(aRandomSubscribersAfterRemove)
+	fmt.Println("Remove(conn-1, #random) 後，#random 的訂閱者:", aSortedRandomSubscribersAfterRemove)
 
 	// RemoveLeft：某條連線斷線，拆掉它的所有訂閱（對面頻道也會同步移除這條連線）。
 	oBimultimap.RemoveLeft("conn-2")
-	fmt.Println("RemoveLeft(conn-2) 後，#general 的訂閱者:", sorted(oBimultimap.Right("#general")))
+	aGeneralSubscribersAfterRemoveLeft := oBimultimap.Right("#general")
+	aSortedGeneralSubscribersAfterRemoveLeft := sorted(aGeneralSubscribersAfterRemoveLeft)
+	fmt.Println("RemoveLeft(conn-2) 後，#general 的訂閱者:", aSortedGeneralSubscribersAfterRemoveLeft)
 
 	// RemoveRight：整個頻道關閉，拆掉所有人對它的訂閱。
 	oBimultimap.RemoveRight("#random")
-	fmt.Println("RemoveRight(#random) 後，conn-1 的頻道:", sorted(oBimultimap.Left("conn-1")))
-	fmt.Println("RemoveRight(#random) 後，conn-3 的頻道:", sorted(oBimultimap.Left("conn-3")))
+	aConn1ChannelsAfterRemoveRight := oBimultimap.Left("conn-1")
+	aSortedConn1ChannelsAfterRemoveRight := sorted(aConn1ChannelsAfterRemoveRight)
+	fmt.Println("RemoveRight(#random) 後，conn-1 的頻道:", aSortedConn1ChannelsAfterRemoveRight)
+
+	aConn3ChannelsAfterRemoveRight := oBimultimap.Left("conn-3")
+	aSortedConn3ChannelsAfterRemoveRight := sorted(aConn3ChannelsAfterRemoveRight)
+	fmt.Println("RemoveRight(#random) 後，conn-3 的頻道:", aSortedConn3ChannelsAfterRemoveRight)
 }
 
 // sorted 把 Range 出來的無序 slice 排好，讓範例輸出穩定。

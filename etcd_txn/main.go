@@ -57,21 +57,24 @@ func main() {
 		newBalanceB := balanceB + 100
 
 		// 2. 【Compare & Write 階段】直接調用底層的 Txn 包裹一次送出
-		txnResp, err := cli.Txn(ctx).
-			// 🧱 If：檢查 A 和 B 的版本號是否跟剛才讀取時一模一樣
-			If(
-				clientv3.Compare(clientv3.ModRevision(accA), "=", revA),
-				clientv3.Compare(clientv3.ModRevision(accB), "=", revB),
-			).
-			// 🧱 Then：條件完全成立，執行原子的寫入操作
-			Then(
-				clientv3.OpPut(accA, strconv.Itoa(newBalanceA)),
-				clientv3.OpPut(accB, strconv.Itoa(newBalanceB)),
-			).
-			// 🧱 Else：條件不成立（被別人插隊了），這裡我們選擇什麼都不做（空操作）
-			Else().
-			// 🚀 正式提交給 etcd 叢集
-			Commit()
+		oModRevisionA := clientv3.ModRevision(accA)
+		oModRevisionB := clientv3.ModRevision(accB)
+		oCompareA := clientv3.Compare(oModRevisionA, "=", revA)
+		oCompareB := clientv3.Compare(oModRevisionB, "=", revB)
+		sNewBalanceA := strconv.Itoa(newBalanceA)
+		sNewBalanceB := strconv.Itoa(newBalanceB)
+		oOpPutA := clientv3.OpPut(accA, sNewBalanceA)
+		oOpPutB := clientv3.OpPut(accB, sNewBalanceB)
+
+		oTxn := cli.Txn(ctx)
+		// 🧱 If：檢查 A 和 B 的版本號是否跟剛才讀取時一模一樣
+		oTxnWithIf := oTxn.If(oCompareA, oCompareB)
+		// 🧱 Then：條件完全成立，執行原子的寫入操作
+		oTxnWithThen := oTxnWithIf.Then(oOpPutA, oOpPutB)
+		// 🧱 Else：條件不成立（被別人插隊了），這裡我們選擇什麼都不做（空操作）
+		oTxnWithElse := oTxnWithThen.Else()
+		// 🚀 正式提交給 etcd 叢集
+		txnResp, err := oTxnWithElse.Commit()
 
 		if err != nil {
 			log.Fatalf("Txn 執行出錯: %v", err)

@@ -24,34 +24,44 @@ func Db() *gorm.DB {
 
 	// 2. 初始化 GORM
 	// 注意：這裡加入了錯誤檢查，不要用 "_"，否則連不上你也看不出來
-	oDb, err := gorm.Open(mysql.Open(masterDSN), &gorm.Config{
+	oMasterDialector := mysql.Open(masterDSN)
+	oGormConfig := &gorm.Config{
 		NamingStrategy: schema.NamingStrategy{
 			TablePrefix: "gin-", // 直接寫死前綴
 		},
-	})
+	}
+	oDb, err := gorm.Open(oMasterDialector, oGormConfig)
 
 	if err != nil {
 		// 如果這裡噴掉，代表你的 Go 容器真的連不到 MySQL 容器
-		panic(fmt.Sprintf("資料庫連線失敗: %v", err))
+		sConnectError := fmt.Sprintf("資料庫連線失敗: %v", err)
+		panic(sConnectError)
 	}
 
 	// 3. 註冊讀寫分離 (雖然目前都連同一台，但結構要留著)
-	err = oDb.Use(dbresolver.Register(dbresolver.Config{
-		Sources:  []gorm.Dialector{mysql.Open(masterDSN)},
-		Replicas: []gorm.Dialector{mysql.Open(slaveDSN)},
+	oSourceDialector := mysql.Open(masterDSN)
+	oReplicaDialector := mysql.Open(slaveDSN)
+	oResolverConfig := dbresolver.Config{
+		Sources:  []gorm.Dialector{oSourceDialector},
+		Replicas: []gorm.Dialector{oReplicaDialector},
 		Policy:   dbresolver.RandomPolicy{},
-	}).
-		SetMaxIdleConns(10).
-		SetConnMaxLifetime(time.Hour))
+	}
+	oResolver := dbresolver.Register(oResolverConfig)
+	oResolver = oResolver.SetMaxIdleConns(10)
+	oResolver = oResolver.SetConnMaxLifetime(time.Hour)
+	err = oDb.Use(oResolver)
 
 	if err != nil {
-		panic(fmt.Sprintf("DBResolver 註冊失敗: %v", err))
+		sResolverError := fmt.Sprintf("DBResolver 註冊失敗: %v", err)
+		panic(sResolverError)
 	}
 
 	// 驗證連線是否真的活著
 	sqlDB, _ := oDb.DB()
-	if err := sqlDB.Ping(); err != nil {
-		panic(fmt.Sprintf("資料庫 Ping 失敗 (雖然 Open 成功了): %v", err))
+	err = sqlDB.Ping()
+	if err != nil {
+		sPingError := fmt.Sprintf("資料庫 Ping 失敗 (雖然 Open 成功了): %v", err)
+		panic(sPingError)
 	}
 
 	fmt.Println("oDb 初始化成功:", oDb)

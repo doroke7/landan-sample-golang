@@ -30,6 +30,6 @@ var Command = &cobra.Command{
 }
 
 func init() {
-	Command.Flags().StringVar(&sDevice, "device", "default", "avfoundation 影像裝置")
+	Command.Flags().StringVar(&sDevice, "device", "default", "攝影機:default、編號或名稱的一部分")
 	Command.Flags().StringVar(&sOutput, "output", "./runtime/desktop/shot-{time}.jpg", "輸出檔案,{time} 代表時間戳")
 }

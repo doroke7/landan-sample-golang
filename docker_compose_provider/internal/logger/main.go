@@ -8,10 +8,10 @@ import (
 
 // Metadata tells docker compose which options `up` accepts.
 const Metadata = `{
-  "description": "用宿主機的 ffmpeg 從攝影機截一張圖",
+  "description": "用宿主機的 AVFoundation 從攝影機截一張圖",
   "up": {
     "parameters": [
-      {"name": "device", "description": "avfoundation 影像裝置(ffmpeg -f avfoundation -list_devices true -i \"\")", "required": false, "type": "string", "default": "default"},
+      {"name": "device", "description": "攝影機:default、編號(0、1…)或名稱的一部分(system_profiler SPCameraDataType 可查名稱)", "required": false, "type": "string", "default": "default"},
       {"name": "output", "description": "輸出檔案,可用 {time} 代表時間戳", "required": false, "type": "string", "default": "./runtime/desktop/shot-{time}.jpg"}
     ]
   },

@@ -1,9 +1,9 @@
-name: ffmpeg-shot
+name: camera-shot
 
 services:
   screenshot:
     provider:
       type: ${PROVIDER:-./bin/desktop}  # 預設 bin/desktop;make up 會依 OS/架構換成 bin/desktop-<os>-<arch>
       options:
-        device: default      # 0 / 1 也可以,用 ffmpeg -f avfoundation -list_devices true -i "" 查
+        device: default      # 也可以填編號(0、1…)或名稱的一部分,用 system_profiler SPCameraDataType 查名稱
         output: ./runtime/desktop/shot-{time}.jpg

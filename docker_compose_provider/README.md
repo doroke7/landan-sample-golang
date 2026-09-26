@@ -1,7 +1,7 @@
 # docker_compose_provider
 
 用 `docker compose` 啟動 **宿主機(Mac)上的程式**,而不是容器。
-範例:`docker compose up` → 由宿主機的 ffmpeg 從攝影機截一張圖。
+範例:`docker compose up` → 由宿主機直接呼叫 macOS 的 AVFoundation 從攝影機截一張圖(不需要 ffmpeg)。
 
 ```sh
 make build               # 編譯本機版本 -> bin/desktop
@@ -33,7 +33,8 @@ PROVIDER=./bin/desktop-linux-amd64 docker compose up
 
 ## 打包成各平台版本
 
-純 Go(沒有 cgo),用 Go 內建的交叉編譯,不需要 Docker:
+不需要 Docker。macOS 版用 cgo 呼叫 AVFoundation(要有 Xcode Command Line Tools,
+Mac 上編 macOS 版兩種架構都可以);Linux / Windows 版是純 Go,直接交叉編譯:
 
 ```sh
 make all              # 全部
@@ -43,8 +44,9 @@ make build-windows    # bin/desktop-windows-amd64.exe、bin/desktop-windows-arm6
 make clean            # 刪除 bin/
 ```
 
-**只有 macOS 版能真正截圖**:截圖用的是 ffmpeg 的 `avfoundation`(macOS 專屬),
-其他平台編得出來、命令也能跑,但 `up` 會因為 ffmpeg 找不到裝置而失敗。
+**只有 macOS 版能真正截圖**:截圖用的是 AVFoundation(macOS 專屬)。
+其他平台編得出來、命令也能跑,但 `up` 會直接回報「這個版本不能截圖」。
+macOS 版一定要開 cgo(`CGO_ENABLED=1`,Makefile 已處理),用 `CGO_ENABLED=0` 編出來的 macOS 版一樣是不能截圖的空殼。
 
 ## 為什麼要這樣做
 
@@ -87,7 +89,7 @@ services:
 
 ```json
 {"type":"info","message":"screenshot: 截圖完成 /path/shot.jpg"}
-{"type":"error","message":"screenshot: ffmpeg 失敗 ..."}
+{"type":"error","message":"screenshot: 沒有攝影機權限 ..."}
 ```
 
 失敗時要以**非 0** 結束。`metadata` 則輸出一段描述參數的 JSON(見 `internal/logger/main.go`)。
@@ -112,7 +114,11 @@ cmd/                             命令樹(目錄是宿主機端命令的分組,
     └── down/down.go             desktop compose down
 internal/
 ├── logger/main.go               輸出給 Compose 的 JSON 訊息、metadata(package logger)
-└── screenshoter/main.go         用宿主機 ffmpeg 截一張圖(package screenshoter)
+└── screenshoter/                用 AVFoundation 截一張圖(package screenshoter)
+    ├── main.go                  Take:整理路徑、存成 JPEG
+    ├── capture_darwin.go        macOS + cgo:呼叫 C,把 BGRA 轉成 image.Image
+    ├── avf_darwin.h / .m        Objective-C:開相機、要權限、丟掉前幾幀後取一幀
+    └── capture_other.go         其他平台:回報不能截圖
 compose.yaml                     Compose 設定
 ```
 
@@ -127,8 +133,10 @@ compose.yaml                     Compose 設定
   只會顯示 `✔ screenshot Created`(截圖其實成功了,檔案在 `./runtime/desktop/`)。
   要看到訊息請加 `--progress=plain`,或用 `make up`(已內建)。
 - 沒有實測過 `metadata` 是不是一定要有。
-- `-framerate 30 -video_size 1280x720` 是這台 Mac 內建相機支援的模式,別台不一定支援。
+- 解析度只是「要求」:程式要 1920x1080(`AVCaptureSession` 的 preset),相機不支援就退回最高畫質。
+  在這台 MacBook Air 上實測輸出是 1920x1080;其他相機沒有測過。
+- 每次截圖前會先丟掉 10 幀,讓自動曝光穩定(第一幀通常偏暗)。
 - 第一次執行 macOS 可能詢問攝影機權限,權限算給「啟動它的程式」(終端機)。
-  透過別的方式觸發時,權限算給誰沒有測過。
-- 需要先安裝 ffmpeg(`brew install ffmpeg`)。
+  透過別的方式觸發時,權限算給誰沒有測過。被拒絕時到 系統設定 > 隱私權與安全性 > 攝影機 打開。
+- 編譯 macOS 版需要 Xcode Command Line Tools(`xcode-select --install`),執行時不需要 ffmpeg。
 - 只在 Docker Compose v5.1.3、macOS 上驗證過。

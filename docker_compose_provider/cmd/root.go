@@ -11,7 +11,7 @@ import (
 
 var oRootCommand = &cobra.Command{
 	Use:           "desktop",
-	Short:         "用宿主機的 ffmpeg 截圖,由 docker compose 驅動",
+	Short:         "用宿主機的攝影機截圖,由 docker compose 驅動",
 	SilenceUsage:  true, // 失敗時 docker compose 只需要 JSON 訊息,不要 usage
 	SilenceErrors: true,
 	Run: func(cmd *cobra.Command, args []string) {

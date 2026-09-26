@@ -4,7 +4,7 @@ import (
 	"context"
 	"crypto/md5"
 	"encoding/json"
-	"example/internal/bootstrap"
+	"example/bootstrap"
 	"fmt"
 	"log"
 	"runtime"

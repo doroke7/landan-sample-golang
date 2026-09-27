@@ -75,3 +75,8 @@ sleep 2; curl localhost:18099/ping           # 約 1 秒後重啟，又回 pong
 ## docker 是什麼模式
 1. docker -> 主程序 (有帶 --watcher 的) 是 背景程式處理
 2. 此時 go主程序 -> go副程序 一定只能用背景程式了，所以一定得用 pid
+
+
+## 命名問題
+1. 一般前景監控 叫做 foreground 或 watcher
+2. 一般前景監控 叫做 background 或 supervisor

@@ -18,4 +18,14 @@ func main() {
 
 	// u1 的宣告，如果未指定，會給zero-value
 	// u2 的宣告，如果未指定，會給 nil pointer
+
+	// go 的匿名 struc
+	oPerson := struct {
+		Name string
+	}{
+		"Tome",
+	}
+
+	fmt.Println(oPerson)
+
 }

@@ -3,8 +3,8 @@ package http
 import (
 	"github.com/spf13/cobra"
 
-	"landan-desktop-fyne/sample/launcher/bootstrap"
-	"landan-desktop-fyne/sample/launcher/internal/router"
+	"launcher_supervise/bootstrap"
+	"launcher_supervise/internal/router"
 )
 
 var Command = &cobra.Command{

@@ -6,7 +6,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"landan-desktop-fyne/sample/launcher/cmd/http"
+	"launcher_supervise/cmd/http"
 )
 
 var rootCmd = &cobra.Command{

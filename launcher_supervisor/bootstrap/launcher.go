@@ -36,8 +36,7 @@ func SuperviseLauncher(args ...string) error {
 
 	// Step1:開 for loop,不斷的重試。
 	for {
-		// Step2:副程序是背景程式,沒有 Wait() 可以等,所以一切靠 pid。
-		// pid 檔裡的副程序還活著(例如上一個主程序留下的)就沿用它,不開第二個;否則以 nohup 啟動,把 pid 寫進 pid 檔。
+		// Step2: 檢查pid，如果沒有 pid 就 執行
 		pid, ok := readPid()
 		if !ok || !runningLauncher(pid, exe) {
 			if pid, err = spawnLauncher(exe, args); err != nil {
@@ -48,7 +47,10 @@ func SuperviseLauncher(args ...string) error {
 			log.Printf("[supervisor] 沿用執行中的副程序 (pid %d)", pid)
 		}
 
-		// Step3:每隔 1 秒用 pid 檢查副程序還在不在;同時等停止訊號。
+		// Step3:
+		// 每隔 1 秒用 pid 檢查副程序還在不在; 在就持續檢查，外部卡住
+		// 每隔 1 秒用 pid 檢查副程序還在不在; 不在就持續檢查，回傳 false
+		// 同時等停止訊號的 channel。
 		if stopped := waitLauncher(pid, exe, sig); stopped {
 			stopLauncher(pid, exe)
 			return nil
@@ -65,7 +67,12 @@ func SuperviseLauncher(args ...string) error {
 	}
 }
 
-// waitLauncher blocks until pid is gone (returns false) or a stop signal arrives (returns true).
+/*
+有三種情況
+ 1. 如果 pid 正常運行，責會一直跑迴圈定時檢查，不回傳，外面會看起來卡住。
+ 2. 如果收到 ctrl + C 訊號，就回傳stop 為 true
+ 3. 如果pid 運行不正常，就回傳 stop false
+*/
 func waitLauncher(pid int, exe string, sig <-chan os.Signal) (stopped bool) {
 
 	for runningLauncher(pid, exe) {

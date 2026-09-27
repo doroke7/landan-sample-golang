@@ -14,9 +14,9 @@ const (
 	stopWait    = 5 * time.Second // 收到停止訊號後等子程序收尾多久,超過就強制結束
 )
 
-// SuperviseLauncher runs this executable again with args as a child, and runs it again whenever it exits,
+// WatchLauncher runs this executable again with args as a child, and runs it again whenever it exits,
 // until this process gets SIGTERM or Ctrl-C (which is passed on to the child).
-func SuperviseLauncher(args ...string) error {
+func WatchLauncher(args ...string) error {
 
 	exe, err := os.Executable()
 	if err != nil {
@@ -31,9 +31,9 @@ func SuperviseLauncher(args ...string) error {
 	signal.Notify(sig, syscall.SIGTERM, os.Interrupt)
 	defer signal.Stop(sig)
 
-	// Step1:開 for loop,不斷的重試。
+	// Step1: 開 for loop,不斷的重試。
 	for {
-		// Step2:主程序以 os command 執行副程序(副程序才是主要商務應用)。
+		// Step2: 主程序以 os command 執行副程序(副程序才是主要商務應用)。
 		oCommand := exec.Command(exe, args...)
 		oCommand.Stdout = os.Stdout // 子程序的標準輸出 → 副程序自己的標準輸出
 		oCommand.Stderr = os.Stderr // 子程序的標準錯誤 → 副程序自己的標準錯誤
@@ -43,7 +43,7 @@ func SuperviseLauncher(args ...string) error {
 		}
 		log.Printf("[supervisor] 已啟動 (pid %d)", oCommand.Process.Pid)
 
-		// Step3:開一個協程,用 chan done 接收 oCommand.Wait();底下用 select 等待 done。
+		// Step3: 開一個協程,用 chan done 接收 oCommand.Wait();底下用 select 等待 done。
 		done := make(chan error, 1)
 		go func() {
 			done <- oCommand.Wait()
@@ -55,7 +55,7 @@ func SuperviseLauncher(args ...string) error {
 			return nil
 
 		case err := <-done:
-			// Step4:done 等到了(副程序死了的訊號),就等待 restartWait 後再一次迴圈。
+			// Step4: done 等到了(副程序死了的訊號),就等待 restartWait 後再一次迴圈。
 			log.Printf("[supervisor] 已結束 (%v),%s 後重啟", err, restartWait)
 		}
 

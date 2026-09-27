@@ -14,9 +14,9 @@ var Command = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		sAddr, _ := cmd.Flags().GetString("addr")
 
-		// --supervisor:自己不提供服務,改成執行不帶 --supervisor 的自己,結束(崩潰或被關掉)就重啟。
-		if bSupervisor, _ := cmd.Flags().GetBool("supervisor"); bSupervisor {
-			return bootstrap.SuperviseLauncher("http", "--addr", sAddr)
+		// --watcher:自己不提供服務,改成執行不帶 --watcher 的自己,結束(崩潰或被關掉)就重啟。
+		if bWatcher, _ := cmd.Flags().GetBool("watcher"); bWatcher {
+			return bootstrap.WatchLauncher("http", "--addr", sAddr)
 		}
 
 		return router.New().Run(sAddr)
@@ -25,5 +25,5 @@ var Command = &cobra.Command{
 
 func init() {
 	Command.Flags().String("addr", ":8080", "監聽位址")
-	Command.Flags().Bool("supervisor", false, "由 supervisor 看守服務,結束(崩潰或被關掉)就自動重啟")
+	Command.Flags().Bool("watcher", false, "由 supervisor 看守服務,結束(崩潰或被關掉)就自動重啟")
 }

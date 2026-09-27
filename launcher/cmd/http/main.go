@@ -3,6 +3,7 @@ package http
 import (
 	"github.com/spf13/cobra"
 
+	"landan-desktop-fyne/sample/launcher/bootstrap"
 	"landan-desktop-fyne/sample/launcher/internal/router"
 )
 
@@ -12,10 +13,17 @@ var Command = &cobra.Command{
 	Args:  cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		sAddr, _ := cmd.Flags().GetString("addr")
+
+		// --supervisor:自己不提供服務,改成執行不帶 --supervisor 的自己,結束(崩潰或被關掉)就重啟。
+		if bSupervisor, _ := cmd.Flags().GetBool("supervisor"); bSupervisor {
+			return bootstrap.SuperviseLauncher("http", "--addr", sAddr)
+		}
+
 		return router.New().Run(sAddr)
 	},
 }
 
 func init() {
 	Command.Flags().String("addr", ":8080", "監聽位址")
+	Command.Flags().Bool("supervisor", false, "由 supervisor 看守服務,結束(崩潰或被關掉)就自動重啟")
 }

@@ -1,7 +1,7 @@
 package main
 
-import "landan-desktop-fyne/sample/launcher/internal/router"
+import "landan-desktop-fyne/sample/launcher/cmd"
 
 func main() {
-	router.New().Run(":8080")
+	cmd.Execute()
 }
